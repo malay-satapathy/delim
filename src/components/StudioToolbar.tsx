@@ -3,24 +3,21 @@ import {
   Check,
   ChevronDown,
   Sparkles,
-  ArrowDownAZ,
-  CaseSensitive,
   Sliders,
   Hash,
   Mail,
-  Link,
+  Link as LinkIcon,
   Table,
   Fingerprint,
   Shuffle,
   ArrowUpDown,
   ArrowRight,
-  ArrowLeft,
   ArrowLeftRight,
   Trash2,
   Zap,
-  Layers,
-  Braces,
   Binary,
+  Quote,
+  Filter,
 } from 'lucide-react';
 import { DelimOptions, Preset, CaseTransform, StudioMode } from '../types';
 import { PRESETS } from '../lib/presets';
@@ -42,6 +39,8 @@ interface StudioToolbarProps {
   onToggleSettings: () => void;
   settingsOpen: boolean;
   onSelectMode?: (mode: StudioMode) => void;
+  hasDuplicates?: boolean;
+  hasNumbers?: boolean;
 }
 
 const DELIMITER_SHORTCUTS = [
@@ -54,6 +53,13 @@ const DELIMITER_SHORTCUTS = [
   { label: 'New Line (\\n)', value: '\n' },
 ];
 
+const QUOTE_OPTIONS = [
+  { label: 'None', value: 'none' },
+  { label: "Single (')", value: 'single' },
+  { label: 'Double (")', value: 'double' },
+  { label: 'Backtick (`)', value: 'backtick' },
+];
+
 export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   options,
   onOptionsChange,
@@ -62,85 +68,53 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   onReverseLines,
   onShuffleLines,
   onConvertToDelimited,
-  onConvertToColumn,
   onSwap,
   onClear,
   liveMode,
   onToggleLiveMode,
   onToggleSettings,
   settingsOpen,
-  onSelectMode,
+  hasDuplicates = false,
+  hasNumbers = false,
 }) => {
+  const [presetsMenuOpen, setPresetsMenuOpen] = useState(false);
   const [delimDropdownOpen, setDelimDropdownOpen] = useState(false);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [caseMenuOpen, setCaseMenuOpen] = useState(false);
-  const [extractMenuOpen, setExtractMenuOpen] = useState(false);
+  const [quoteDropdownOpen, setQuoteDropdownOpen] = useState(false);
   const [dedupMenuOpen, setDedupMenuOpen] = useState(false);
+  const [refineMenuOpen, setRefineMenuOpen] = useState(false);
 
+  const presetsRef = useRef<HTMLDivElement>(null);
   const delimRef = useRef<HTMLDivElement>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
-  const caseRef = useRef<HTMLDivElement>(null);
-  const extractRef = useRef<HTMLDivElement>(null);
+  const quoteRef = useRef<HTMLDivElement>(null);
   const dedupRef = useRef<HTMLDivElement>(null);
+  const refineRef = useRef<HTMLDivElement>(null);
 
-  const toggleDelim = () => {
-    setDelimDropdownOpen((prev) => !prev);
-    setSortMenuOpen(false);
-    setCaseMenuOpen(false);
-    setExtractMenuOpen(false);
-    setDedupMenuOpen(false);
-  };
-
-  const toggleSort = () => {
-    setSortMenuOpen((prev) => !prev);
+  const closeAll = () => {
+    setPresetsMenuOpen(false);
     setDelimDropdownOpen(false);
-    setCaseMenuOpen(false);
-    setExtractMenuOpen(false);
+    setQuoteDropdownOpen(false);
     setDedupMenuOpen(false);
-  };
-
-  const toggleCase = () => {
-    setCaseMenuOpen((prev) => !prev);
-    setDelimDropdownOpen(false);
-    setSortMenuOpen(false);
-    setExtractMenuOpen(false);
-    setDedupMenuOpen(false);
-  };
-
-  const toggleExtract = () => {
-    setExtractMenuOpen((prev) => !prev);
-    setDelimDropdownOpen(false);
-    setSortMenuOpen(false);
-    setCaseMenuOpen(false);
-    setDedupMenuOpen(false);
+    setRefineMenuOpen(false);
   };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (delimRef.current && !delimRef.current.contains(event.target as Node)) {
-        setDelimDropdownOpen(false);
+      const target = event.target as Node;
+      if (
+        (presetsRef.current && presetsRef.current.contains(target)) ||
+        (delimRef.current && delimRef.current.contains(target)) ||
+        (quoteRef.current && quoteRef.current.contains(target)) ||
+        (dedupRef.current && dedupRef.current.contains(target)) ||
+        (refineRef.current && refineRef.current.contains(target))
+      ) {
+        return;
       }
-      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
-        setSortMenuOpen(false);
-      }
-      if (caseRef.current && !caseRef.current.contains(event.target as Node)) {
-        setCaseMenuOpen(false);
-      }
-      if (extractRef.current && !extractRef.current.contains(event.target as Node)) {
-        setExtractMenuOpen(false);
-      }
-      if (dedupRef.current && !dedupRef.current.contains(event.target as Node)) {
-        setDedupMenuOpen(false);
-      }
+      closeAll();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setDelimDropdownOpen(false);
-        setSortMenuOpen(false);
-        setCaseMenuOpen(false);
-        setExtractMenuOpen(false);
-        setDedupMenuOpen(false);
+        closeAll();
       }
     }
 
@@ -172,133 +146,347 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
     return true;
   };
 
+  const activePreset = PRESETS.find((p) => isPresetActive(p));
+
   const currentDelimLabel =
     DELIMITER_SHORTCUTS.find((d) => d.value === options.delimiter)?.label ||
-    (options.delimiter === '' ? 'Empty' : `Custom: "${options.delimiter}"`);
+    (options.delimiter === '' ? 'Empty' : `"${options.delimiter}"`);
+
+  const currentQuoteLabel =
+    QUOTE_OPTIONS.find((q) => q.value === options.quotes)?.label ||
+    (options.quotes === 'custom' ? 'Custom' : 'None');
+
+  // Quick primary preset buttons
+  const quickPresets = [
+    { id: 'csv-plain', label: 'CSV' },
+    { id: 'sql-in', label: 'SQL IN' },
+    { id: 'json-array', label: 'JSON' },
+    { id: 'pipe-separated', label: 'Pipe' },
+  ];
 
   return (
-    <div className="relative z-30 w-full bg-white/90 dark:bg-obsidian-900/90 backdrop-blur-md border border-slate-200/90 dark:border-white/[0.08] rounded-2xl shadow-sm dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-3 space-y-3">
-      {/* Row 1: Presets Strip */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none text-xs">
-        <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 pl-1 pr-1.5 shrink-0 select-none">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Presets:</span>
-        </div>
-
-        <div className="flex items-center gap-1.5 min-w-max">
-          {PRESETS.map((preset) => {
-            const active = isPresetActive(preset);
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => onSelectPreset(preset)}
-                title={preset.description}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-xl border transition-all duration-150 ${
-                  active
-                    ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-300 font-semibold shadow-sm ring-1 ring-indigo-500/20'
-                    : 'bg-slate-50/80 dark:bg-obsidian-850 border-slate-200/80 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400'
-                }`}
-              >
-                {preset.badge && (
-                  <span
-                    className={`px-1 py-0.2 text-[9px] font-mono font-bold rounded ${
-                      active
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-200/80 dark:bg-obsidian-700 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {preset.badge}
-                  </span>
-                )}
-                <span>{preset.name}</span>
-              </button>
-            );
-          })}
-
-          {/* Contextual Studio Mode Discovery Bridges */}
-          {onSelectMode && (
-            <div className="flex items-center gap-1.5 pl-2 ml-1 border-l border-slate-200 dark:border-white/[0.08] shrink-0">
-              <button
-                type="button"
-                onClick={() => onSelectMode('diff')}
-                title="Switch to Two-List Diff and Set Operations mode"
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition-colors select-none"
-              >
-                <Layers className="w-3 h-3 text-cyan-500" />
-                <span>Two-List Diff →</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectMode('template')}
-                title="Switch to Custom Template String Interpolation Engine"
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors select-none"
-              >
-                <Braces className="w-3 h-3 text-purple-500" />
-                <span>Template Engine →</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectMode('slicer')}
-                title="Switch to Tabular TSV / CSV Column Slicer"
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors select-none"
-              >
-                <Table className="w-3 h-3 text-emerald-500" />
-                <span>Table Slicer →</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Row 2: Controls, Clean-up Chips, Actions, and Delimiter */}
-      <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex flex-wrap items-center justify-between gap-3 text-xs">
-        {/* Left Group: Quick Clean-up Chips & Tools */}
+    <div className="relative z-30 w-full bg-white/95 dark:bg-obsidian-900/95 backdrop-blur-md border border-slate-200/90 dark:border-white/[0.08] rounded-2xl shadow-xs dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] px-3 py-2 transition-all">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Left Section: Unified Format, Delimiter & Essentials */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* Deduplicate with Strategy Dropdown */}
-          <div className="relative" ref={dedupRef}>
-            <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-obsidian-850 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => onOptionsChange({ deduplicate: !options.deduplicate })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 font-medium transition-all ${
-                  options.deduplicate
-                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                <div
-                  className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
-                    options.deduplicate
-                      ? 'bg-indigo-600 border-indigo-600 text-white'
-                      : 'border-slate-300 dark:border-slate-600'
+          {/* Format Segmented Pill with "Presets ▾" */}
+          <div
+            ref={presetsRef}
+            className="relative inline-flex items-center rounded-xl p-0.5 border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/80 dark:bg-obsidian-850 shadow-2xs"
+          >
+            {quickPresets.map((qp) => {
+              const presetObj = PRESETS.find((p) => p.id === qp.id);
+              const isActive = presetObj ? isPresetActive(presetObj) : false;
+              return (
+                <button
+                  key={qp.id}
+                  type="button"
+                  onClick={() => presetObj && onSelectPreset(presetObj)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-white dark:bg-obsidian-750 text-indigo-600 dark:text-indigo-300 shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {options.deduplicate && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                </div>
-                <span>
-                  {options.deduplicateStrategy === 'none'
-                    ? 'Singletons Only'
-                    : options.deduplicateStrategy === 'last'
-                    ? 'Keep Last'
-                    : 'Deduplicate'}
-                </span>
-              </button>
+                  {qp.label}
+                </button>
+              );
+            })}
 
+            {/* Presets Dropdown Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                setPresetsMenuOpen(!presetsMenuOpen);
+                setDelimDropdownOpen(false);
+                setQuoteDropdownOpen(false);
+                setDedupMenuOpen(false);
+                setRefineMenuOpen(false);
+              }}
+              title="Browse all SQL, Python, JSON, and markup presets"
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
+                activePreset && !quickPresets.some((qp) => qp.id === activePreset.id)
+                  ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                  : presetsMenuOpen
+                  ? 'bg-white dark:bg-obsidian-750 text-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-indigo-400" />
+              <span>
+                {activePreset && !quickPresets.some((qp) => qp.id === activePreset.id)
+                  ? activePreset.name.split(' ')[0]
+                  : 'Presets'}
+              </span>
+              <ChevronDown className="w-3 h-3 opacity-70" />
+            </button>
+
+            {/* Presets Categorized Dropdown */}
+            {presetsMenuOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-72 bg-white dark:bg-obsidian-850 rounded-2xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[75vh] overflow-y-auto">
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Database & SQL
+                </div>
+                {PRESETS.filter((p) => p.id.startsWith('sql')).map((preset) => {
+                  const active = isPresetActive(preset);
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectPreset(preset);
+                        setPresetsMenuOpen(false);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1 py-0.2 text-[9px] font-mono font-bold rounded bg-slate-100 dark:bg-obsidian-700 text-slate-600 dark:text-slate-400">
+                          {preset.badge}
+                        </span>
+                        <span>{preset.name}</span>
+                      </div>
+                      {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                    </button>
+                  );
+                })}
+
+                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1.5 pt-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Language Collections & Code
+                </div>
+                {PRESETS.filter((p) => p.id.startsWith('python') || p.id === 'json-array' || p.id === 'html-list').map(
+                  (preset) => {
+                    const active = isPresetActive(preset);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectPreset(preset);
+                          setPresetsMenuOpen(false);
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 transition-colors"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-1 py-0.2 text-[9px] font-mono font-bold rounded bg-slate-100 dark:bg-obsidian-700 text-slate-600 dark:text-slate-400">
+                            {preset.badge}
+                          </span>
+                          <span>{preset.name}</span>
+                        </div>
+                        {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                      </button>
+                    );
+                  }
+                )}
+
+                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1.5 pt-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Delimited Formats
+                </div>
+                {PRESETS.filter(
+                  (p) =>
+                    p.id === 'csv-plain' ||
+                    p.id === 'csv-quoted' ||
+                    p.id === 'pipe-separated' ||
+                    p.id === 'tsv'
+                ).map((preset) => {
+                  const active = isPresetActive(preset);
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectPreset(preset);
+                        setPresetsMenuOpen(false);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1 py-0.2 text-[9px] font-mono font-bold rounded bg-slate-100 dark:bg-obsidian-700 text-slate-600 dark:text-slate-400">
+                          {preset.badge}
+                        </span>
+                        <span>{preset.name}</span>
+                      </div>
+                      {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Delimiter Selector */}
+          <div className="relative" ref={delimRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setDelimDropdownOpen(!delimDropdownOpen);
+                setPresetsMenuOpen(false);
+                setQuoteDropdownOpen(false);
+                setDedupMenuOpen(false);
+                setRefineMenuOpen(false);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs transition-colors"
+            >
+              <span className="text-slate-400 text-[11px]">Delim:</span>
+              <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{currentDelimLabel}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {delimDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-obsidian-850 rounded-2xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                {DELIMITER_SHORTCUTS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => {
+                      onOptionsChange({ delimiter: item.value });
+                      setDelimDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    <span className="font-mono">{item.label}</span>
+                    {options.delimiter === item.value && (
+                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    )}
+                  </button>
+                ))}
+                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1 pt-1.5 px-3">
+                  <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-1">Custom Delimiter</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. ' AND ' or ' | '"
+                    value={options.delimiter}
+                    onChange={(e) => onOptionsChange({ delimiter: e.target.value })}
+                    className="w-full px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quotes Selector */}
+          <div className="relative" ref={quoteRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setQuoteDropdownOpen(!quoteDropdownOpen);
+                setPresetsMenuOpen(false);
+                setDelimDropdownOpen(false);
+                setDedupMenuOpen(false);
+                setRefineMenuOpen(false);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs transition-colors"
+            >
+              <Quote className="w-3 h-3 text-slate-400" />
+              <span className="font-mono text-slate-700 dark:text-slate-300">{currentQuoteLabel}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {quoteDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-44 bg-white dark:bg-obsidian-850 rounded-2xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                {QUOTE_OPTIONS.map((q) => (
+                  <button
+                    key={q.value}
+                    type="button"
+                    onClick={() => {
+                      onOptionsChange({ quotes: q.value as DelimOptions['quotes'] });
+                      setQuoteDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 transition-colors"
+                  >
+                    <span>{q.label}</span>
+                    {options.quotes === q.value && (
+                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="h-4 w-px bg-slate-200 dark:bg-white/[0.08] mx-0.5 hidden sm:block" />
+
+          {/* Trim Toggle */}
+          <button
+            type="button"
+            onClick={() => onOptionsChange({ trimWhitespace: !options.trimWhitespace })}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-2xs ${
+              options.trimWhitespace
+                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+                : 'bg-white dark:bg-obsidian-850 border-slate-200/90 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <div
+              className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
+                options.trimWhitespace
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'border-slate-300 dark:border-slate-600'
+              }`}
+            >
+              {options.trimWhitespace && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+            </div>
+            <span>Trim</span>
+          </button>
+
+          {/* Deduplicate (Contextual Sensory Expansion) */}
+          <div className="relative" ref={dedupRef}>
+            {hasDuplicates || options.deduplicate ? (
+              <div className="inline-flex items-center rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 overflow-hidden shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => onOptionsChange({ deduplicate: !options.deduplicate })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 font-medium transition-all ${
+                    options.deduplicate
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  <div
+                    className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
+                      options.deduplicate
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {options.deduplicate && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                  </div>
+                  <span>
+                    {options.deduplicateStrategy === 'none'
+                      ? 'Singletons'
+                      : options.deduplicateStrategy === 'last'
+                      ? 'Keep Last'
+                      : 'Dedupe'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDedupMenuOpen(!dedupMenuOpen);
+                    setPresetsMenuOpen(false);
+                    setDelimDropdownOpen(false);
+                    setQuoteDropdownOpen(false);
+                    setRefineMenuOpen(false);
+                  }}
+                  title="Deduplication Strategy"
+                  className="p-1.5 border-l border-slate-100 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-obsidian-800 text-slate-400"
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => setDedupMenuOpen(!dedupMenuOpen)}
-                title="Deduplication Strategy (pandas keep='first'|'last'|False)"
-                className="p-1.5 border-l border-slate-100 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-obsidian-800 text-slate-400"
+                onClick={() => onOptionsChange({ deduplicate: true })}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 text-slate-600 dark:text-slate-400 hover:text-slate-900 font-medium transition-all shadow-2xs"
               >
-                <ChevronDown className="w-3 h-3" />
+                <div className="w-3.5 h-3.5 rounded flex items-center justify-center border border-slate-300 dark:border-slate-600 text-[10px]" />
+                <span>Dedupe</span>
               </button>
-            </div>
+            )}
 
             {dedupMenuOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white dark:bg-obsidian-850 rounded-2xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Duplicate Strategy (pandas)
+                  Duplicate Strategy
                 </div>
                 <button
                   type="button"
@@ -352,336 +540,195 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
             )}
           </div>
 
-          {/* Trim */}
-          <button
-            type="button"
-            onClick={() => onOptionsChange({ trimWhitespace: !options.trimWhitespace })}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-              options.trimWhitespace
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
+          {/* Sensory Zero-Padding: Promoted when numbers exist or pad width is set */}
+          {(hasNumbers || (options.zeroPadWidth && options.zeroPadWidth > 0)) && (
             <div
-              className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
-                options.trimWhitespace
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : 'border-slate-300 dark:border-slate-600'
-              }`}
+              title="Zero-pad numbers to fixed width (pandas zfill)"
+              className="flex items-center gap-1 px-2 py-1 rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 animate-in fade-in zoom-in-95 duration-150 select-none shadow-2xs"
             >
-              {options.trimWhitespace && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+              <Binary className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="text-[11px] font-medium">Pad 0s:</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                placeholder="0"
+                value={options.zeroPadWidth === 0 ? '' : options.zeroPadWidth}
+                onChange={(e) => onOptionsChange({ zeroPadWidth: parseInt(e.target.value, 10) || 0 })}
+                className="w-7 px-1 py-0.5 text-xs font-mono font-bold rounded bg-white dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center"
+              />
             </div>
-            <span>Trim</span>
-          </button>
+          )}
 
-          {/* Skip Blanks */}
-          <button
-            type="button"
-            onClick={() => onOptionsChange({ skipEmpty: !options.skipEmpty })}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-              options.skipEmpty
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
-            <div
-              className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
-                options.skipEmpty
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : 'border-slate-300 dark:border-slate-600'
-              }`}
-            >
-              {options.skipEmpty && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-            </div>
-            <span>Skip Blanks</span>
-          </button>
+          <div className="h-4 w-px bg-slate-200 dark:bg-white/[0.08] mx-0.5 hidden sm:block" />
 
-          {/* Inline */}
-          <button
-            type="button"
-            onClick={() => onOptionsChange({ tidyUp: !options.tidyUp })}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-              options.tidyUp
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
-            <div
-              className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
-                options.tidyUp ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'
-              }`}
-            >
-              {options.tidyUp && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-            </div>
-            <span>Inline</span>
-          </button>
-
-          {/* Zero-Pad (pandas zfill) */}
-          <div
-            title="Zero-pad numbers to fixed width (pandas zfill). E.g. 5 turns '2138' to '02138'"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 select-none"
-          >
-            <Binary className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pad 0s:</span>
-            <input
-              type="number"
-              min="0"
-              max="20"
-              placeholder="0"
-              value={options.zeroPadWidth === 0 ? '' : options.zeroPadWidth}
-              onChange={(e) => onOptionsChange({ zeroPadWidth: parseInt(e.target.value, 10) || 0 })}
-              className="w-7 px-1 py-0.5 text-xs font-mono font-bold rounded bg-slate-100 dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center"
-            />
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 px-0.5 hidden sm:inline">•</span>
-
-          {/* Sort Dropdown */}
-          <div className="relative" ref={sortRef}>
+          {/* Refine / Transform Popover Menu */}
+          <div className="relative" ref={refineRef}>
             <button
               type="button"
-              onClick={toggleSort}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-                options.sort !== 'none' || sortMenuOpen
-                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
-                  : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+              onClick={() => {
+                setRefineMenuOpen(!refineMenuOpen);
+                setPresetsMenuOpen(false);
+                setDelimDropdownOpen(false);
+                setQuoteDropdownOpen(false);
+                setDedupMenuOpen(false);
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-2xs ${
+                options.caseTransform !== 'none' || options.sort !== 'none' || refineMenuOpen
+                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-semibold'
+                  : 'bg-white dark:bg-obsidian-850 border-slate-200/90 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300'
               }`}
             >
-              <ArrowDownAZ className="w-3.5 h-3.5 text-slate-500" />
-              <span>
-                {options.sort === 'asc'
-                  ? 'A → Z'
-                  : options.sort === 'desc'
-                  ? 'Z → A'
-                  : options.sort === 'numeric-asc'
-                  ? '1 → 9'
-                  : options.sort === 'numeric-desc'
-                  ? '9 → 1'
-                  : options.sort === 'freq-desc'
-                  ? 'Frequent'
-                  : options.sort === 'freq-asc'
-                  ? 'Rare'
-                  : 'Sort'}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+              <Filter className="w-3.5 h-3.5 text-slate-500" />
+              <span>Refine</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
-            {sortMenuOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-56 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOptionsChange({ sort: 'none' });
-                    setSortMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <span>Original Order</span>
-                  {options.sort === 'none' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOptionsChange({ sort: 'asc' });
-                    setSortMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <span>Alphabetical (A → Z)</span>
-                  {options.sort === 'asc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOptionsChange({ sort: 'desc' });
-                    setSortMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <span>Alphabetical (Z → A)</span>
-                  {options.sort === 'desc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOptionsChange({ sort: 'numeric-asc' });
-                    setSortMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <span>Numeric (1 → 9)</span>
-                  {options.sort === 'numeric-asc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOptionsChange({ sort: 'freq-desc' });
-                    setSortMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <div>
-                    <span className="font-semibold block">Frequency (s.value_counts)</span>
-                    <span className="text-[10px] text-slate-400">Most frequent first</span>
-                  </div>
-                  {options.sort === 'freq-desc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
-                </button>
-                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onReverseLines();
-                      setSortMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                  >
-                    <ArrowUpDown className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Reverse Upside Down</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onShuffleLines();
-                      setSortMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                  >
-                    <Shuffle className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Random Shuffle</span>
-                  </button>
+            {refineMenuOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-64 bg-white dark:bg-obsidian-850 rounded-2xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                {/* Case Transform */}
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Case Transformation
                 </div>
-              </div>
-            )}
-          </div>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-50 dark:bg-obsidian-950 rounded-xl mb-2">
+                  {[
+                    { label: 'Original', val: 'none' },
+                    { label: 'UPPER', val: 'upper' },
+                    { label: 'lower', val: 'lower' },
+                    { label: 'Title', val: 'title' },
+                  ].map((c) => (
+                    <button
+                      key={c.val}
+                      type="button"
+                      onClick={() => onOptionsChange({ caseTransform: c.val as CaseTransform })}
+                      className={`py-1 px-2 text-xs font-medium rounded-lg text-center transition-all ${
+                        options.caseTransform === c.val
+                          ? 'bg-indigo-600 text-white font-semibold shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
 
-          {/* Case Dropdown */}
-          <div className="relative" ref={caseRef}>
-            <button
-              type="button"
-              onClick={toggleCase}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-                options.caseTransform !== 'none' || caseMenuOpen
-                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
-                  : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
-              }`}
-            >
-              <CaseSensitive className="w-3.5 h-3.5 text-slate-500" />
-              <span>
-                {options.caseTransform === 'upper'
-                  ? 'UPPER'
-                  : options.caseTransform === 'lower'
-                  ? 'lower'
-                  : options.caseTransform === 'title'
-                  ? 'Title'
-                  : 'Case'}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
-            </button>
-
-            {caseMenuOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-40 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[
-                  { label: 'Original Case', val: 'none' },
-                  { label: 'UPPERCASE', val: 'upper' },
-                  { label: 'lowercase', val: 'lower' },
-                  { label: 'Title Case', val: 'title' },
-                ].map((c) => (
+                {/* Sorting */}
+                <div className="border-t border-slate-100 dark:border-white/[0.06] pt-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Sorting & Order
+                </div>
+                <div className="space-y-0.5">
                   <button
-                    key={c.val}
                     type="button"
-                    onClick={() => {
-                      onOptionsChange({ caseTransform: c.val as CaseTransform });
-                      setCaseMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                    onClick={() => onOptionsChange({ sort: options.sort === 'asc' ? 'none' : 'asc' })}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
                   >
-                    <span>{c.label}</span>
-                    {options.caseTransform === c.val && (
+                    <span>Ascending (A → Z)</span>
+                    {options.sort === 'asc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOptionsChange({ sort: options.sort === 'desc' ? 'none' : 'desc' })}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <span>Descending (Z → A)</span>
+                    {options.sort === 'desc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onOptionsChange({ sort: options.sort === 'freq-desc' ? 'none' : 'freq-desc' })
+                    }
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <span>Frequency (Most Common First)</span>
+                    {options.sort === 'freq-desc' && (
                       <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     )}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 px-0.5 hidden sm:inline">•</span>
-
-          {/* Extract Patterns Dropdown */}
-          <div className="relative" ref={extractRef}>
-            <button
-              type="button"
-              onClick={toggleExtract}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-semibold transition-all ${
-                extractMenuOpen
-                  ? 'bg-indigo-100 dark:bg-indigo-950 border-indigo-400 dark:border-indigo-600 text-indigo-800 dark:text-indigo-200 shadow-sm'
-                  : 'border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100/70'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Extract Patterns</span>
-              <ChevronDown className="w-3 h-3 text-indigo-400 ml-0.5" />
-            </button>
-
-            {extractMenuOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-56 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Extract from Column text
+                  <div className="flex items-center gap-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onReverseLines();
+                        setRefineMenuOpen(false);
+                      }}
+                      className="flex-1 py-1 px-2 text-[11px] font-medium rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-obsidian-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1"
+                    >
+                      <ArrowUpDown className="w-3 h-3 text-indigo-500" />
+                      <span>Reverse</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onShuffleLines();
+                        setRefineMenuOpen(false);
+                      }}
+                      className="flex-1 py-1 px-2 text-[11px] font-medium rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-obsidian-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1"
+                    >
+                      <Shuffle className="w-3 h-3 text-indigo-500" />
+                      <span>Shuffle</span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExtract('numbers');
-                    setExtractMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <Hash className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Extract Numbers (IDs)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExtract('emails');
-                    setExtractMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Extract Email Addresses</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExtract('urls');
-                    setExtractMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <Link className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Extract URLs / Links</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExtract('uuids');
-                    setExtractMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
-                >
-                  <Fingerprint className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Extract UUIDs</span>
-                </button>
-                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1 pt-1">
+
+                {/* Extract Patterns */}
+                <div className="border-t border-slate-100 dark:border-white/[0.06] mt-2 pt-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Quick Extractors
+                </div>
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExtract('numbers');
+                      setRefineMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <Hash className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Extract Numbers / IDs</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExtract('emails');
+                      setRefineMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Extract Emails</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExtract('urls');
+                      setRefineMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Extract URLs</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExtract('uuids');
+                      setRefineMenuOpen(false);
+                    }}
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
+                  >
+                    <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Extract UUIDs</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       onExtract('excel');
-                      setExtractMenuOpen(false);
+                      setRefineMenuOpen(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                    className="w-full px-2.5 py-1 text-xs text-left flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg text-slate-700 dark:text-slate-200"
                   >
-                    <Table className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <Table className="w-3.5 h-3.5 text-indigo-500" />
                     <span>Clean Excel Pasted Quotes</span>
                   </button>
                 </div>
@@ -690,122 +737,75 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
           </div>
         </div>
 
-        {/* Right Group: Delimiter Selector, Actions, Live switch, Advanced */}
+        {/* Right Section: Serene Live State & Actions */}
         <div className="flex flex-wrap items-center gap-2 ml-auto">
-          {/* Delimiter Selector */}
-          <div className="relative" ref={delimRef}>
+          {/* Live indicator (or Convert button when live mode is OFF) */}
+          {liveMode ? (
             <button
               type="button"
-              onClick={toggleDelim}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-obsidian-850 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors"
+              onClick={onToggleLiveMode}
+              title="Real-time live conversion active (click to pause)"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 transition-all hover:opacity-90 shadow-2xs"
             >
-              <span className="text-slate-400 text-[11px]">Delim:</span>
-              <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{currentDelimLabel}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-[11px]">Live</span>
             </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onConvertToDelimited}
+                title="Convert Column to Delimited (Cmd/Ctrl + Enter)"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-xs transition-all"
+              >
+                <span>Convert</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+                <span className="text-[9px] font-mono opacity-80 pl-0.5">⌘↵</span>
+              </button>
+              <button
+                type="button"
+                onClick={onToggleLiveMode}
+                title="Enable live conversion"
+                className="px-2 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 text-slate-400 hover:text-slate-700"
+              >
+                <Zap className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
-            {delimDropdownOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-52 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                {DELIMITER_SHORTCUTS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => {
-                      onOptionsChange({ delimiter: item.value });
-                      setDelimDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                  >
-                    <span className="font-mono">{item.label}</span>
-                    {options.delimiter === item.value && (
-                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    )}
-                  </button>
-                ))}
-                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1 pt-1 px-3">
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-1">Custom Delimiter</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. ' AND ' or ' | '"
-                    value={options.delimiter}
-                    onChange={(e) => onOptionsChange({ delimiter: e.target.value })}
-                    className="w-full px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onConvertToDelimited}
-              title="Convert Column to Delimited (Cmd/Ctrl + Enter)"
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-sm shadow-indigo-500/25 transition-all"
-            >
-              <span>Convert</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[9px] font-mono opacity-80 pl-0.5">⌘↵</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onConvertToColumn}
-              title="Reverse Delimited to Column (Cmd/Ctrl + Shift + Enter)"
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl bg-slate-100 dark:bg-obsidian-850 hover:bg-slate-200 dark:hover:bg-obsidian-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.06] transition-all"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reverse</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onSwap}
-              title="Swap Left & Right content"
-              className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-obsidian-850 rounded-xl border border-slate-200/80 dark:border-white/[0.06] transition-colors"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onClear}
-              title="Clear both editors (Cmd/Ctrl + K)"
-              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl border border-red-200/60 dark:border-red-900/40 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Live Switch */}
+          {/* Swap Button */}
           <button
             type="button"
-            onClick={onToggleLiveMode}
-            title="Toggle real-time auto-conversion"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-              liveMode
-                ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400'
-                : 'bg-slate-50 dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-400'
-            }`}
+            onClick={onSwap}
+            title="Swap Left & Right content"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-obsidian-850 rounded-xl border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
           >
-            <Zap className={`w-3.5 h-3.5 ${liveMode ? 'text-indigo-500 animate-pulse' : 'text-slate-400'}`} />
-            <span className="hidden md:inline">Live:</span>
-            <span className="font-semibold">{liveMode ? 'ON' : 'OFF'}</span>
+            <ArrowLeftRight className="w-3.5 h-3.5" />
           </button>
 
-          {/* Advanced Drawer Button */}
+          {/* Clear Button */}
+          <button
+            type="button"
+            onClick={onClear}
+            title="Clear both editors (Cmd/Ctrl + K)"
+            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl border border-slate-200/90 dark:border-white/[0.08] hover:border-red-200 dark:hover:border-red-900/40 transition-colors shadow-2xs"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Advanced Settings Drawer Trigger */}
           <button
             type="button"
             onClick={onToggleSettings}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-medium transition-all ${
+            title="Open Advanced Settings Drawer"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-2xs ${
               settingsOpen
                 ? 'bg-slate-200 dark:bg-obsidian-700 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
-                : 'bg-white dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.06] hover:border-slate-300'
+                : 'bg-white dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-white/[0.08] hover:border-slate-300'
             }`}
           >
             <Sliders className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Advanced</span>
+            <span className="hidden sm:inline">Settings</span>
             {activeCustomCount > 0 && (
               <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-mono font-bold">
                 {activeCustomCount}

@@ -27,7 +27,6 @@ interface EditorPaneProps {
   onSelectSample?: (sampleData: string) => void;
   onInspectDuplicates?: () => void;
   onOpenSlicer?: () => void;
-  onSwitchMode?: (mode: 'standard' | 'diff' | 'template' | 'slicer') => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -42,7 +41,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   onSelectSample,
   onInspectDuplicates,
   onOpenSlicer,
-  onSwitchMode,
 }) => {
   const [copied, setCopied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -395,9 +393,9 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         {/* Empty State Interactive Starter Chips (Only on empty source pane) */}
         {isSource && !value && onSelectSample && (
           <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 text-center select-none pl-14">
-            <div className="pointer-events-auto max-w-sm space-y-3">
+            <div className="pointer-events-auto max-w-sm space-y-2.5">
               <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                Paste data, drag & drop a file, or try a sample:
+                Paste column data, drop a file, or try a sample:
               </p>
               <div className="flex flex-wrap items-center justify-center gap-1.5">
                 {Object.entries(SAMPLE_DATASETS).map(([key, sample]) => (
@@ -405,39 +403,12 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
                     key={key}
                     type="button"
                     onClick={() => onSelectSample(sample.data)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/80 dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/80 dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-all"
                   >
                     <span>{sample.icon}</span>
                     <span>{sample.label}</span>
                   </button>
                 ))}
-
-                {onSwitchMode && (
-                  <div className="w-full pt-2 flex flex-wrap items-center justify-center gap-1.5 text-[11px] border-t border-slate-200/60 dark:border-white/[0.06] mt-2">
-                    <span className="text-slate-400 mr-1 select-none">Studio Modes:</span>
-                    <button
-                      type="button"
-                      onClick={() => onSwitchMode('diff')}
-                      className="px-2 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800/60 bg-cyan-50/60 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 font-medium"
-                    >
-                      ⧉ Two-List Diff
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSwitchMode('template')}
-                      className="px-2 py-0.5 rounded-lg border border-purple-200 dark:border-purple-800/60 bg-purple-50/60 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 font-medium"
-                    >
-                      {'{ }'} Template Engine
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSwitchMode('slicer')}
-                      className="px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 font-medium"
-                    >
-                      ⊞ Table Slicer
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>

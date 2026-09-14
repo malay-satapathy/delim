@@ -21,6 +21,7 @@ import {
   reverseLines,
   shuffleLines,
   getDuplicateDetails,
+  calculateStats,
 } from './lib/engine';
 import { SAMPLE_INPUT } from './lib/presets';
 
@@ -283,73 +284,79 @@ export const App: React.FC = () => {
         </div>
 
         {/* Mode Views */}
-        {studioMode === 'standard' && (
-          <>
-            <StudioToolbar
-              options={options}
-              onOptionsChange={handleUpdateOptions}
-              onSelectPreset={handleSelectPreset}
-              onExtract={handleExtract}
-              onReverseLines={handleReverseLines}
-              onShuffleLines={handleShuffleLines}
-              onConvertToDelimited={() => handleConvertToDelimited()}
-              onConvertToColumn={() => handleConvertToColumn()}
-              onSwap={handleSwap}
-              onClear={handleClear}
-              liveMode={liveMode}
-              onToggleLiveMode={() => setLiveMode(!liveMode)}
-              onToggleSettings={() => setSettingsOpen(!settingsOpen)}
-              settingsOpen={settingsOpen}
-              onSelectMode={setStudioMode}
-            />
+        {studioMode === 'standard' && (() => {
+          const sourceStats = calculateStats(columnText, '\n');
+          const hasDuplicates = sourceStats.duplicateCount > 0;
+          const hasNumbers = sourceStats.numericStats !== null;
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-              <EditorPane
-                title="Column Data"
-                subtitle="Paste lists, spreadsheet columns, or raw text"
-                value={columnText}
-                onChange={(val) => {
-                  setColumnText(val);
-                  if (liveMode) {
-                    handleConvertToDelimited(val, options);
-                  }
-                }}
-                placeholder={`Enter or paste column data here...\n\nExample:\n90210\n10001\n94103\n90210`}
-                delimiter="\n"
-                isSource={true}
-                onSelectSample={handleLoadSample}
-                onInspectDuplicates={() => setDuplicateModalOpen(true)}
-                onOpenSlicer={() => setStudioMode('slicer')}
-                onSwitchMode={setStudioMode}
+          return (
+            <>
+              <StudioToolbar
+                options={options}
+                onOptionsChange={handleUpdateOptions}
+                onSelectPreset={handleSelectPreset}
+                onExtract={handleExtract}
+                onReverseLines={handleReverseLines}
+                onShuffleLines={handleShuffleLines}
+                onConvertToDelimited={() => handleConvertToDelimited()}
+                onConvertToColumn={() => handleConvertToColumn()}
+                onSwap={handleSwap}
+                onClear={handleClear}
+                liveMode={liveMode}
+                onToggleLiveMode={() => setLiveMode(!liveMode)}
+                onToggleSettings={() => setSettingsOpen(!settingsOpen)}
+                settingsOpen={settingsOpen}
+                onSelectMode={setStudioMode}
+                hasDuplicates={hasDuplicates}
+                hasNumbers={hasNumbers}
               />
 
-              <EditorPane
-                title="Delimited Data"
-                subtitle="Formatted output for SQL, JSON, CSV, or code"
-                value={delimitedText}
-                onChange={(val) => {
-                  setDelimitedText(val);
-                  if (liveMode) {
-                    handleConvertToColumn(val, options);
-                  }
-                }}
-                placeholder={`Delimited output appears here...\n\nExample:\n'90210', '10001', '94103'`}
-                delimiter={options.delimiter}
-                isSource={false}
-                isPrimaryCopy={true}
-                onInspectDuplicates={() => setDuplicateModalOpen(true)}
-                onSwitchMode={setStudioMode}
-              />
-            </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                <EditorPane
+                  title="Column Data"
+                  subtitle="Paste lists, spreadsheet columns, or raw text"
+                  value={columnText}
+                  onChange={(val) => {
+                    setColumnText(val);
+                    if (liveMode) {
+                      handleConvertToDelimited(val, options);
+                    }
+                  }}
+                  placeholder="Enter or paste column data here..."
+                  delimiter="\n"
+                  isSource={true}
+                  onSelectSample={handleLoadSample}
+                  onInspectDuplicates={() => setDuplicateModalOpen(true)}
+                  onOpenSlicer={() => setStudioMode('slicer')}
+                />
 
-            <SettingsDrawer
-              options={options}
-              onChange={handleUpdateOptions}
-              isOpen={settingsOpen}
-              onToggleOpen={() => setSettingsOpen(!settingsOpen)}
-            />
-          </>
-        )}
+                <EditorPane
+                  title="Delimited Data"
+                  subtitle="Formatted output for SQL, JSON, CSV, or code"
+                  value={delimitedText}
+                  onChange={(val) => {
+                    setDelimitedText(val);
+                    if (liveMode) {
+                      handleConvertToColumn(val, options);
+                    }
+                  }}
+                  placeholder="Formatted delimited output will appear here live..."
+                  delimiter={options.delimiter}
+                  isSource={false}
+                  isPrimaryCopy={true}
+                  onInspectDuplicates={() => setDuplicateModalOpen(true)}
+                />
+              </div>
+
+              <SettingsDrawer
+                options={options}
+                onChange={handleUpdateOptions}
+                isOpen={settingsOpen}
+                onToggleOpen={() => setSettingsOpen(!settingsOpen)}
+              />
+            </>
+          );
+        })()}
 
         {studioMode === 'diff' && (
           <TwoListDiffPane
