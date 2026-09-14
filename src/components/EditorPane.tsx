@@ -158,7 +158,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex flex-col h-[520px] bg-white dark:bg-obsidian-900 border rounded-2xl shadow-sm transition-all duration-200 overflow-hidden ${
+      className={`relative flex flex-col h-[560px] xl:h-[calc(100vh-270px)] min-h-[500px] bg-white dark:bg-obsidian-900 border rounded-2xl shadow-sm transition-all duration-200 overflow-hidden ${
         isDraggingOver
           ? 'border-indigo-500 ring-2 ring-indigo-500/40 shadow-glow'
           : 'border-slate-200/90 dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-500/25 focus-within:border-indigo-500/50 dark:focus-within:shadow-glow'

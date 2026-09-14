@@ -28,6 +28,7 @@ export const App: React.FC = () => {
   const [liveMode, setLiveMode] = useState<boolean>(true);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
+  const [isFullWidth, setIsFullWidth] = useState<boolean>(true);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -198,9 +199,15 @@ export const App: React.FC = () => {
         darkMode={darkMode}
         onToggleTheme={() => setDarkMode(!darkMode)}
         onResetAll={handleResetAll}
+        isFullWidth={isFullWidth}
+        onToggleFullWidth={() => setIsFullWidth(!isFullWidth)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+      <main
+        className={`flex-1 w-full mx-auto py-4 space-y-3.5 transition-all duration-300 ${
+          isFullWidth ? 'max-w-[98vw] px-2 sm:px-4 lg:px-6' : 'max-w-7xl px-4 sm:px-6 lg:px-8'
+        }`}
+      >
         {/* Consolidated Studio Toolbar */}
         <StudioToolbar
           options={options}
@@ -220,7 +227,7 @@ export const App: React.FC = () => {
         />
 
         {/* Workspaces (Column & Delimited) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
           <EditorPane
             title="Column Data"
             subtitle="Paste lists, spreadsheet columns, or raw text"
@@ -274,7 +281,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      <PrivacyNotice />
+      <PrivacyNotice isFullWidth={isFullWidth} />
     </div>
   );
 };

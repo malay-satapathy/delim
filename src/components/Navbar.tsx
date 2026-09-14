@@ -1,16 +1,28 @@
 import React from 'react';
-import { ShieldCheck, Moon, Sun, Github, RotateCcw, Split } from 'lucide-react';
+import { ShieldCheck, Moon, Sun, Github, RotateCcw, Split, Maximize2, Minimize2 } from 'lucide-react';
 
 interface NavbarProps {
   darkMode: boolean;
   onToggleTheme: () => void;
   onResetAll: () => void;
+  isFullWidth: boolean;
+  onToggleFullWidth: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ darkMode, onToggleTheme, onResetAll }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  darkMode,
+  onToggleTheme,
+  onResetAll,
+  isFullWidth,
+  onToggleFullWidth,
+}) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-obsidian-900/80 backdrop-blur-md transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div
+        className={`w-full mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between transition-all duration-300 ${
+          isFullWidth ? 'max-w-[98vw]' : 'max-w-7xl'
+        }`}
+      >
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 font-mono font-bold text-lg">
@@ -39,8 +51,17 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, onToggleTheme, onReset
           <span>Zero Ads</span>
         </div>
 
-        {/* Right Actions: Theme Toggle, Reset, GitHub */}
+        {/* Right Actions: Full Width Toggle, Theme Toggle, Reset, GitHub */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleFullWidth}
+            title={isFullWidth ? 'Switch to Centered View' : 'Expand to Full Width'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-obsidian-850 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/[0.08]"
+          >
+            {isFullWidth ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isFullWidth ? 'Compact' : 'Full Width'}</span>
+          </button>
+
           <button
             onClick={onResetAll}
             title="Reset text and settings to defaults"

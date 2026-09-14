@@ -1,10 +1,18 @@
 import React from 'react';
 import { ShieldCheck, EyeOff, Ban, HeartHandshake } from 'lucide-react';
 
-export const PrivacyNotice: React.FC = () => {
+interface PrivacyNoticeProps {
+  isFullWidth?: boolean;
+}
+
+export const PrivacyNotice: React.FC<PrivacyNoticeProps> = ({ isFullWidth = false }) => {
   return (
     <footer className="w-full mt-12 pt-8 pb-12 border-t border-slate-200/80 dark:border-white/[0.08]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div
+        className={`w-full mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
+          isFullWidth ? 'max-w-[98vw]' : 'max-w-7xl'
+        }`}
+      >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 shrink-0">
