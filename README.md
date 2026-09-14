@@ -20,7 +20,7 @@
 
 Built with a **minimalist, Apple-inspired design pattern** and **anticipatory intelligence**:
 - **Zero-Touch Intent Synthesis**: When you paste data, delim profiles it in $<1\text{ms}$ (numeric IDs, emails, URLs, unquoted keys, Excel tables) and predicts the top 3 transformations as 1-click action cards (`⌘1`, `⌘2`, `⌘3`).
-- **The Magic Wand (Natural Language Data Sculptor)**: Type what you want in plain English (*"sql in numbers"*, *"pad 5 zeros and sort by frequency"*, *"make it a json array uppercase"*) and the on-device semantic parser configures the engine instantly.
+- **The Magic Wand (Universal Natural Language Engine)**: Type whatever you want in plain English (*"remove all a, replace spaces with dashes, and format as sql in"*, *"uppercse and dublicates"*, *"make snake_case then dedupe"*). Supports multi-step conjunction pipelines (`and`, `then`, `&`, `+`), Levenshtein typo-tolerance, extended case styles (`camelCase`, `snake_case`, `PascalCase`, `CONSTANT_CASE`, `kebab-case`), row filters, and built-in Chrome On-Device Gemini Nano fallback (`window.ai`).
 - **The Conduit (Spotlight Quick Palette `⌘K`)**: A Raycast/Spotlight-grade command palette. 1-click read from clipboard, transform, and write back to clipboard without ever touching your mouse.
 - **Unified Command Deck**: Collapses multi-tier toolbars into a single, razor-thin 44px command strip. High-frequency essentials sit at hand, while secondary tools live inside a clean `Refine ▾` menu.
 - **Quiet Canvas**: Free of visual noise, fake sample clutter, and redundant buttons. The canvas gives 80%+ of the viewport directly to your data.
@@ -32,7 +32,12 @@ Built with a **minimalist, Apple-inspired design pattern** and **anticipatory in
 
 ### 1. Anticipatory Intelligence & Productivity
 - **Zero-Touch Intent Deck**: Instant auto-profiling of your pasted data with predicted formats. Hit `⌘1`, `⌘2`, or `⌘3` to copy directly to your clipboard in a single stroke.
-- **Natural Language Magic Wand (`🪄`)**: Zero-server, 100% local semantic parser translating human prompts into engine operations.
+- **Universal Natural Language Engine (`🪄`)**:
+  - **Multi-Step Conjunction Pipelines**: Chain operations sequentially with `and`, `then`, `after that`, `&`, `+`, or commas.
+  - **Fuzzy Typo-Tolerance**: Damerau-Levenshtein distance resilience for misspelled commands (*"uppercse"*, *"dublicates"*, *"seperated"*).
+  - **Comprehensive Case Suite**: UPPERCASE, lowercase, Title Case, `camelCase`, `snake_case`, `PascalCase`, `CONSTANT_CASE`, and `kebab-case`.
+  - **Row & Character Filters**: Length constraints (`> 5 chars`, `< 10 chars`), prefix/suffix matches (`starts with tbl_`, `ends with .tmp`), regex filters, odd/even lines.
+  - **On-Device Gemini Nano AI Bridge**: 100% private, client-side fallback via Chromium's `window.ai` Prompt API with zero server calls.
 - **Spotlight Palette (`⌘K` / `Ctrl+K`)**: Fast keyboard-driven command launcher with fuzzy search, mode switcher, and instant **Clipboard Conduit** (`Paste & Copy SQL IN`, `CSV`, `JSON`, etc.).
 
 ### 2. Four Focused Studio Modes

@@ -208,9 +208,136 @@ describe('intent engine - parseNaturalLanguageIntent', () => {
     expect(res.options.caseTransform).toBe('upper');
   });
 
+  it('handles 3-step compound pipeline: "remove all a, replace spaces with dashes, and format as sql in"', () => {
+    const input = 'alpha beta\ngamma delta';
+    const res = parseNaturalLanguageIntent('remove all a, replace spaces with dashes, and format as sql in', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    // After removing 'a': 'lph bet', 'gmm delt'
+    // After replacing ' ' with '-': 'lph-bet', 'gmm-delt'
+    expect(res.transformedText).toBe('lph-bet\ngmm-delt');
+    expect(res.options.globalPrefix).toBe('(');
+    expect(res.options.globalSuffix).toBe(')');
+    expect(res.options.delimiter).toBe(', ');
+  });
+
+  it('handles sequential pipeline with "then": "strip vowels then uppercase"', () => {
+    const input = 'hello world';
+    const res = parseNaturalLanguageIntent('strip vowels then uppercase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hll wrld');
+    expect(res.options.caseTransform).toBe('upper');
+  });
+
+  it('recovers from typos via Damerau-Levenshtein distance: "uppercse and dublicates"', () => {
+    const res = parseNaturalLanguageIntent('uppercse and dublicates', DEFAULT_OPTIONS);
+    expect(res.matched).toBe(true);
+    expect(res.options.caseTransform).toBe('upper');
+    expect(res.options.deduplicate).toBe(true);
+  });
+
+  it('converts to camelCase', () => {
+    const input = 'user_first_name\norder-id\ncreated_at_date';
+    const res = parseNaturalLanguageIntent('convert to camelcase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('userFirstName\norderId\ncreatedAtDate');
+  });
+
+  it('converts to snake_case', () => {
+    const input = 'userFirstName\nOrderId\ncreatedAtDate';
+    const res = parseNaturalLanguageIntent('make snake_case', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('user_first_name\norder_id\ncreated_at_date');
+  });
+
+  it('converts to PascalCase', () => {
+    const input = 'user_name\norder_item';
+    const res = parseNaturalLanguageIntent('turn into pascalcase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('UserName\nOrderItem');
+  });
+
+  it('converts to CONSTANT_CASE', () => {
+    const input = 'api_key\nsecret_token';
+    const res = parseNaturalLanguageIntent('make constantcase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('API_KEY\nSECRET_TOKEN');
+  });
+
+  it('filters lines by length: "keep lines longer than 5 chars"', () => {
+    const input = 'cat\nelephant\ndog\nhippopotamus';
+    const res = parseNaturalLanguageIntent('keep lines longer than 5 chars', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('elephant\nhippopotamus');
+  });
+
+  it('filters lines by starting prefix: "keep lines starting with tbl_"', () => {
+    const input = 'tbl_users\nviews_analytics\ntbl_orders\nlog_tmp';
+    const res = parseNaturalLanguageIntent('keep lines starting with tbl_', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('tbl_users\ntbl_orders');
+  });
+
+  it('filters lines by ending suffix: "remove lines ending with .tmp"', () => {
+    const input = 'report.pdf\ncache.tmp\ndata.csv\nscratch.tmp';
+    const res = parseNaturalLanguageIntent('remove lines ending with .tmp', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('report.pdf\ndata.csv');
+  });
+
+  it('keeps odd lines', () => {
+    const input = 'line1\nline2\nline3\nline4\nline5';
+    const res = parseNaturalLanguageIntent('keep odd lines', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('line1\nline3\nline5');
+  });
+
+  it('sorts lines by length', () => {
+    const input = 'medium\nlongestline\nshort\na';
+    const res = parseNaturalLanguageIntent('sort by length', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('a\nshort\nmedium\nlongestline');
+  });
+
+  it('replaces spaces with underscores', () => {
+    const input = 'hello world here';
+    const res = parseNaturalLanguageIntent('replace spaces with underscores', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hello_world_here');
+  });
+
+  it('converts to kebab-case with hyphen in prompt', () => {
+    const input = 'User Profile Settings';
+    const res = parseNaturalLanguageIntent('convert to kebab-case', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('user-profile-settings');
+  });
+
+  it('handles & and + conjunctions in multi-step prompts', () => {
+    const input = 'hello\nworld';
+    const res = parseNaturalLanguageIntent('reverse characters & uppercase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('olleh\ndlrow');
+    expect(res.options.caseTransform).toBe('upper');
+  });
+
+  it('handles even lines filter', () => {
+    const input = 'line1\nline2\nline3\nline4\nline5';
+    const res = parseNaturalLanguageIntent('keep even lines', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('line2\nline4');
+  });
+
+  it('removes lines shorter than threshold', () => {
+    const input = 'ab\nhello\nc\nworld';
+    const res = parseNaturalLanguageIntent('remove lines shorter than 3 chars', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hello\nworld');
+  });
+
   it('returns matched=false and help text for unrecognized prompts', () => {
     const res = parseNaturalLanguageIntent('make me a hot cappuccino please', DEFAULT_OPTIONS);
     expect(res.matched).toBe(false);
     expect(res.description).toContain('Could not recognize prompt');
   });
 });
+

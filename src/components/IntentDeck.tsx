@@ -8,6 +8,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { IntentCard, classifyDataIntent, parseNaturalLanguageIntent } from '../lib/intent';
+import { isOnDeviceAIAvailable, queryOnDeviceAIFallback } from '../lib/onDeviceAI';
 import { DelimOptions } from '../types';
 
 interface IntentDeckProps {
@@ -36,6 +37,11 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [magicPrompt, setMagicPrompt] = useState('');
   const [magicFeedback, setMagicFeedback] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+  const [hasOnDeviceAI, setHasOnDeviceAI] = useState(false);
+
+  useEffect(() => {
+    isOnDeviceAIAvailable().then((avail) => setHasOnDeviceAI(avail));
+  }, []);
 
   const cards: IntentCard[] = React.useMemo(() => {
     return classifyDataIntent(input);
@@ -86,7 +92,7 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
   }, [cards]);
 
   // Magic wand NLP submit
-  const handleMagicSubmit = (e: React.FormEvent) => {
+  const handleMagicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!magicPrompt.trim()) return;
 
@@ -109,6 +115,15 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
       }
 
       setMagicFeedback({ type: 'success', text: res.description });
+    } else if (hasOnDeviceAI) {
+      // Async fallback to local Chrome Gemini Nano
+      const aiRes = await queryOnDeviceAIFallback(magicPrompt, input);
+      if (aiRes && aiRes.transformedText && onUpdateInput) {
+        onUpdateInput(aiRes.transformedText);
+        setMagicFeedback({ type: 'success', text: `On-Device AI: ${aiRes.description}` });
+      } else {
+        setMagicFeedback({ type: 'warning', text: res.description });
+      }
     } else {
       setMagicFeedback({ type: 'warning', text: res.description });
     }
@@ -125,9 +140,17 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
     <div className="w-full bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-indigo-50/90 dark:from-obsidian-900 dark:via-obsidian-850 dark:to-obsidian-900 border border-indigo-200/80 dark:border-indigo-900/50 rounded-2xl p-2.5 shadow-sm space-y-2 animate-in fade-in slide-in-from-top-2 duration-200 select-none">
       {/* Top Strip: Header & Predictive Cards */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
-          <Zap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-indigo-500/20" />
-          <span>Auto-Synthesized (Instant Intent):</span>
+        <div className="flex items-center gap-2 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
+          <div className="flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-indigo-500/20" />
+            <span>Auto-Synthesized (Instant Intent):</span>
+          </div>
+          {hasOnDeviceAI && (
+            <span className="px-1.5 py-0.2 text-[9px] font-mono font-medium rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400" />
+              Nano AI
+            </span>
+          )}
         </div>
 
         {/* Action Cards (Top 3 Predictions) */}
