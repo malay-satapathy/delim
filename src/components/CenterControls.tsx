@@ -42,8 +42,15 @@ export const CenterControls: React.FC<CenterControlsProps> = ({
         setDropdownOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setDropdownOpen(false);
+    }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const currentDelimLabel =
@@ -51,7 +58,7 @@ export const CenterControls: React.FC<CenterControlsProps> = ({
     (options.delimiter === '' ? 'Empty' : `Custom: "${options.delimiter}"`);
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-3 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+    <div className="relative z-20 flex flex-col md:flex-row items-center justify-between gap-4 py-3 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
       {/* Left section: Delimiter Selector */}
       <div className="flex items-center gap-2 w-full md:w-auto">
         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Delimiter:</span>
