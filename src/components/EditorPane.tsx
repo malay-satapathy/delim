@@ -416,30 +416,30 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       </div>
 
       {/* Footer Stats Bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-50/60 dark:bg-obsidian-850/50 border-t border-slate-200/80 dark:border-white/[0.06] text-[11px] text-slate-500 dark:text-slate-400 shrink-0 select-none">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-50/80 dark:bg-obsidian-850/70 border-t border-slate-200/80 dark:border-white/[0.06] text-[11px] text-slate-500 dark:text-slate-400 shrink-0 select-none">
+        <div className="flex items-center gap-2.5">
           <span>
-            <strong className="font-semibold text-slate-700 dark:text-slate-300">{stats.lineCount}</strong> lines
+            <strong className="font-bold text-slate-900 dark:text-slate-100">{stats.lineCount}</strong> lines
           </span>
-          <span>•</span>
+          <span className="text-slate-300 dark:text-slate-700">•</span>
           <span>
-            <strong className="font-semibold text-slate-700 dark:text-slate-300">{stats.itemCount}</strong> items
+            <strong className="font-bold text-slate-900 dark:text-slate-100">{stats.itemCount}</strong> items
           </span>
-          <span>•</span>
+          <span className="text-slate-300 dark:text-slate-700">•</span>
           <span>
-            <strong className="font-semibold text-slate-700 dark:text-slate-300">{stats.uniqueCount}</strong> unique
+            <strong className="font-bold text-slate-900 dark:text-slate-100">{stats.uniqueCount}</strong> unique
           </span>
           {stats.duplicateCount > 0 && (
             <>
-              <span>•</span>
+              <span className="text-slate-300 dark:text-slate-700">•</span>
               <button
                 type="button"
                 onClick={onInspectDuplicates}
                 title="Click to inspect duplicate frequencies"
-                className="text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+                className="text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1.5 transition-colors"
               >
                 <span>{stats.duplicateCount} duplicates</span>
-                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700">
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 font-bold">
                   Inspect
                 </span>
               </button>

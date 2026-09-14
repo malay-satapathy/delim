@@ -158,10 +158,10 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
 
   // Quick primary preset buttons
   const quickPresets = [
-    { id: 'csv-plain', label: 'CSV' },
-    { id: 'sql-in', label: 'SQL IN' },
-    { id: 'json-array', label: 'JSON' },
-    { id: 'pipe-separated', label: 'Pipe' },
+    { id: 'csv-plain', label: 'CSV', tooltip: 'Comma separated values (a, b, c)' },
+    { id: 'sql-in', label: 'SQL IN', tooltip: "SQL WHERE col IN ('a', 'b', 'c')" },
+    { id: 'json-array', label: 'JSON', tooltip: 'JSON string array ["a", "b", "c"]' },
+    { id: 'pipe-separated', label: 'Pipe', tooltip: 'Pipe separated values (a|b|c)' },
   ];
 
   return (
@@ -172,7 +172,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
           {/* Format Segmented Pill with "Presets ▾" */}
           <div
             ref={presetsRef}
-            className="relative inline-flex items-center rounded-xl p-0.5 border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/80 dark:bg-obsidian-850 shadow-2xs"
+            className="relative inline-flex items-center rounded-xl p-0.5 border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-obsidian-850 shadow-2xs"
           >
             {quickPresets.map((qp) => {
               const presetObj = PRESETS.find((p) => p.id === qp.id);
@@ -182,10 +182,11 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                   key={qp.id}
                   type="button"
                   onClick={() => presetObj && onSelectPreset(presetObj)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  title={qp.tooltip}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all duration-150 ${
                     isActive
-                      ? 'bg-white dark:bg-obsidian-750 text-indigo-600 dark:text-indigo-300 shadow-xs ring-1 ring-black/5 dark:ring-white/10'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-obsidian-800'
                   }`}
                 >
                   {qp.label}
@@ -204,12 +205,12 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                 setRefineMenuOpen(false);
               }}
               title="Browse all SQL, Python, JSON, and markup presets"
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all duration-150 ${
                 activePreset && !quickPresets.some((qp) => qp.id === activePreset.id)
-                  ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                  ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
                   : presetsMenuOpen
-                  ? 'bg-white dark:bg-obsidian-750 text-slate-900 dark:text-white'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-indigo-100 dark:bg-obsidian-800 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-obsidian-800'
               }`}
             >
               <Sparkles className="w-3 h-3 text-indigo-400" />
@@ -376,8 +377,9 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-obsidian-850 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs transition-colors"
             >
-              <Quote className="w-3 h-3 text-slate-400" />
-              <span className="font-mono text-slate-700 dark:text-slate-300">{currentQuoteLabel}</span>
+              <Quote className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Quote:</span>
+              <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{currentQuoteLabel}</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
@@ -541,7 +543,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
           </div>
 
           {/* Sensory Zero-Padding: Promoted when numbers exist or pad width is set */}
-          {(hasNumbers || (options.zeroPadWidth && options.zeroPadWidth > 0)) && (
+          {Boolean(hasNumbers || (options.zeroPadWidth && options.zeroPadWidth > 0)) && (
             <div
               title="Zero-pad numbers to fixed width (pandas zfill)"
               className="flex items-center gap-1 px-2 py-1 rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 animate-in fade-in zoom-in-95 duration-150 select-none shadow-2xs"
