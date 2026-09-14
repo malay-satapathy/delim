@@ -69,7 +69,7 @@ export const PrivacyNotice: React.FC = () => {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com"
+              href="https://github.com/malay-satapathy/delim"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"

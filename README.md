@@ -71,7 +71,7 @@ Deploying your own instance of **delim** to GitHub Pages takes less than a minut
    git init
    git add .
    git commit -m "feat: initial commit for delim"
-   git remote add origin https://github.com/<your-username>/delim.git
+   git remote add origin https://github.com/malay-satapathy/delim.git
    git branch -M main
    git push -u origin main
    ```
@@ -81,7 +81,7 @@ Deploying your own instance of **delim** to GitHub Pages takes less than a minut
    - Under **Build and deployment** $\rightarrow$ **Source**, choose **GitHub Actions**.
    - The included workflow (`.github/workflows/deploy.yml`) will automatically test, build, and publish your site to:
      ```
-     https://<your-username>.github.io/delim/
+     https://malay-satapathy.github.io/delim/
      ```
 
 ---
@@ -95,7 +95,7 @@ Deploying your own instance of **delim** to GitHub Pages takes less than a minut
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/delim.git
+git clone https://github.com/malay-satapathy/delim.git
 cd delim
 
 # Install dependencies

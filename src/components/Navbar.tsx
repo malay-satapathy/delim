@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, onToggleTheme, onReset
           </button>
 
           <a
-            href="https://github.com"
+            href="https://github.com/malay-satapathy/delim"
             target="_blank"
             rel="noopener noreferrer"
             title="View Source on GitHub"
