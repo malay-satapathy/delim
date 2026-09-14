@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded App Icon Background -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <rect width="508" height="508" x="2" y="2" rx="126" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="4" />
+
+  <!-- Glowing Abstract Delim Shape -->
+  <g filter="url(#glow)">
+    <!-- Main Delimiter Diamond & Arrow Path -->
+    <path d="M160 120 L352 120 L256 256 Z" fill="url(#iconGrad)" opacity="0.9" />
+    <circle cx="256" cy="256" r="32" fill="#a5b4fc" />
+    <path d="M160 392 L352 392 L256 256 Z" fill="url(#iconGrad)" opacity="0.9" />
+    <!-- Separator Line -->
+    <line x1="120" y1="256" x2="392" y2="256" stroke="#c7d2fe" stroke-width="18" stroke-linecap="round" />
+  </g>
+</svg>

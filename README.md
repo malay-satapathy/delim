@@ -16,39 +16,45 @@
 
 ## ✨ Features
 
+- **Four Focused Studio Modes**:
+  - **Standard Delimiter**: Fast, fluid 2-pane delimiter conversion with presets, quick chips, and live transformation.
+  - **Two-List Diff & Set Operations**: Compare two datasets with $A - B$, $B - A$, $A \cap B$, $A \cup B$, and Symmetric Difference ($A \Delta B$).
+  - **Custom Template Engine**: Dynamic string interpolation using `{item}`, `{index1}`, `{item_lower}`, `{item_upper}`, `{item_slug}`, `{item_escaped}`, and `{item_json}`.
+  - **Multi-Column Tabular Slicer**: Auto-detect pasted Excel/Google Sheets/TSV/CSV tables and slice any column into delimited output with 1 click.
+- **Smart Inline Table Detection**:
+  - Automatically identifies pasted spreadsheets in the standard workspace and displays instant column isolation chips without navigating away.
+- **SQL Dialect & Limit-Aware Formatter**:
+  - Standard `WHERE col IN ('a', 'b')`
+  - Oracle SQL auto-batching to solve `ORA-01795: maximum number of expressions in a list is 1000` via `(col IN (...) OR col IN (...))`
+  - PostgreSQL Array membership: `col = ANY(ARRAY['a', 'b'])`
+  - Google BigQuery / DuckDB: `col IN UNNEST(['a', 'b'])`
+  - SQL `VALUES ('a'), ('b')` row constructor
 - **Bidirectional Transformation**:
   - Convert multi-line column data to delimited strings in 1-click.
   - Reverse delimited data back to clean column lines.
   - Swap data between workspaces instantly.
 - **1-Click Quick Presets**:
-  - `SQL IN ('a', 'b', 'c')`
+  - `SQL IN ('a', 'b', 'c')` & `SQL IN (Numbers)`
+  - `Postgres ANY(ARRAY)` & `BigQuery UNNEST`
   - `JSON Array ["a", "b", "c"]`
   - `CSV (Plain)` & `CSV (Quoted)`
-  - `Pipe (|)` separated
-  - `TSV (Tab)` separated
-  - `HTML <li>` lists
-  - `SQL Chunks (50)` batching
-- **Flexible Delimiters & Quotes**:
-  - Support for commas, semicolons, pipes, spaces, tabs, newlines, or any custom string/regex.
-  - Wrap items in single quotes (`'`), double quotes (`"`), backticks (`` ` ``), or custom item tags.
+  - `Pipe (|)` & `TSV (Tab)` separated
+  - `HTML <li>` lists & `SQL Chunks (50)` batching
 - **Smart Clean-up**:
   - **Attack the Clones**: Remove duplicate entries while preserving initial order.
   - **Tidy Up**: Toggle inline vs. newline delimited outputs.
   - **Whitespace Trimming**: Strip leading and trailing whitespace automatically.
   - **Skip Empty Lines**: Clean input datasets automatically.
-- **Batching & Chunking**:
-  - Break into new lines every $N$ items (e.g. for SQL query batch limits).
-  - Wrap batches with opening/closing strings (e.g. `( ... ),`).
-- **Sorting & Case Transformation**:
-  - Sort alphabetically (A-Z, Z-A) or naturally by numeric values.
-  - Transform casing: UPPERCASE, lowercase, or Title Case.
+- **PWA & Offline Capability**:
+  - Installable as a progressive web app on macOS, Windows, Linux, iOS, and Android.
+  - 100% offline-ready via built-in Service Worker.
 - **Developer First**:
-  - Line numbers gutter with synchronized scrolling.
+  - Synchronized line numbers gutter.
   - Real-time statistics: lines, items, unique count, duplicate count, and characters.
   - One-click copy with visual toast confirmation.
   - File drag-and-drop & download (`.txt`, `.csv`).
   - Keyboard shortcuts: `Cmd/Ctrl + Enter` to convert, `Cmd/Ctrl + K` to clear.
-  - Dark & Light mode toggle.
+  - Dark & Light mode toggle, Fluid full-width mode.
 
 ---
 

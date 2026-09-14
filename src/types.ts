@@ -45,3 +45,55 @@ export interface TextStats {
   duplicateCount: number;
   charCount: number;
 }
+
+export type StudioMode = 'standard' | 'diff' | 'template' | 'slicer';
+
+export type SetOpType = 'diffA' | 'diffB' | 'intersect' | 'union' | 'symDiff';
+
+export interface SetOpOptions {
+  caseSensitive?: boolean;
+  trimWhitespace?: boolean;
+  skipEmpty?: boolean;
+  delimiter?: string;
+  quotes?: QuoteStyle;
+  prefix?: string;
+  suffix?: string;
+  sort?: SortOrder;
+}
+
+export interface SetOpResult {
+  result: string;
+  items: string[];
+  countA: number;
+  countB: number;
+  resultCount: number;
+  overlapCount: number;
+  uniqueACount: number;
+  uniqueBCount: number;
+}
+
+export type SqlDialect = 'standard' | 'oracle' | 'postgres' | 'bigquery' | 'values';
+
+export interface SqlDialectOptions {
+  columnName?: string;
+  quotes?: QuoteStyle;
+  chunkSize?: number; // For Oracle ORA-01795 (default 1000)
+  isNumeric?: boolean;
+}
+
+export interface DetectedTable {
+  isTable: boolean;
+  delimiter: string;
+  delimiterName: string;
+  columnCount: number;
+  headers: string[];
+  rows: string[][];
+  totalRows: number;
+}
+
+export interface TemplateToken {
+  token: string;
+  label: string;
+  description: string;
+  example: string;
+}

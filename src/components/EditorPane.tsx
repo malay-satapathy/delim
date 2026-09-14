@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   FileUp,
 } from 'lucide-react';
-import { calculateStats, filterLines } from '../lib/engine';
+import { calculateStats, filterLines, detectTable, extractColumnFromTable } from '../lib/engine';
 import { SAMPLE_DATASETS } from '../lib/presets';
 
 interface EditorPaneProps {
@@ -26,6 +26,7 @@ interface EditorPaneProps {
   isPrimaryCopy?: boolean;
   onSelectSample?: (sampleData: string) => void;
   onInspectDuplicates?: () => void;
+  onOpenSlicer?: () => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -39,12 +40,20 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   isPrimaryCopy = false,
   onSelectSample,
   onInspectDuplicates,
+  onOpenSlicer,
 }) => {
   const [copied, setCopied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'keep' | 'drop'>('keep');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Auto-detect tabular data on source pane
+  const tableDetection = React.useMemo(() => {
+    if (!isSource || !value || value.length < 5) return null;
+    const d = detectTable(value);
+    return d.isTable ? d : null;
+  }, [isSource, value]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
@@ -316,6 +325,42 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Smart Tabular Data Detection Banner */}
+      {tableDetection && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-indigo-50/90 dark:bg-indigo-950/70 border-b border-indigo-200/70 dark:border-indigo-800/60 text-xs animate-in fade-in slide-in-from-top-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-semibold text-indigo-950 dark:text-indigo-200 flex items-center gap-1 text-[11px]">
+              <span>⚡ Table detected ({tableDetection.columnCount} cols). Extract:</span>
+            </span>
+            {tableDetection.headers.slice(0, 5).map((header, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  const extracted = extractColumnFromTable(value, idx, true, tableDetection.delimiter);
+                  onChange(extracted.join('\n'));
+                }}
+                title={`Click to isolate Column ${idx + 1}: ${header}`}
+                className="px-2 py-0.5 rounded-md bg-white dark:bg-obsidian-850 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-[10px] font-medium transition-colors shadow-xs"
+              >
+                {header}
+              </button>
+            ))}
+          </div>
+
+          {onOpenSlicer && (
+            <button
+              type="button"
+              onClick={onOpenSlicer}
+              className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 ml-auto"
+            >
+              <span>Full Slicer</span>
+              <span>→</span>
+            </button>
+          )}
         </div>
       )}
 

@@ -1,4 +1,13 @@
-import { DelimOptions, TextStats } from '../types';
+import {
+  DelimOptions,
+  TextStats,
+  SetOpType,
+  SetOpOptions,
+  SetOpResult,
+  SqlDialect,
+  SqlDialectOptions,
+  DetectedTable,
+} from '../types';
 
 export const DEFAULT_OPTIONS: DelimOptions = {
   delimiter: ',',
@@ -442,5 +451,408 @@ export function getDuplicateDetails(text: string, delimiter: string = '\n'): Dup
   });
 
   return duplicates.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Creates a URL-friendly slug from text
+ */
+export function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Computes Set Operations between two lists (A and B):
+ * - diffA: Items only in List A (A - B)
+ * - diffB: Items only in List B (B - A)
+ * - intersect: Items in both lists (A ∩ B)
+ * - union: Unique items across both lists (A ∪ B)
+ * - symDiff: Items in either list, but not both (A Δ B)
+ */
+export function performSetOperation(
+  listA: string,
+  listB: string,
+  op: SetOpType,
+  userOptions: Partial<SetOpOptions> = {}
+): SetOpResult {
+  const options: Required<SetOpOptions> = {
+    caseSensitive: false,
+    trimWhitespace: true,
+    skipEmpty: true,
+    delimiter: '\n',
+    quotes: 'none',
+    prefix: '',
+    suffix: '',
+    sort: 'none',
+    ...userOptions,
+  };
+
+  const cleanList = (raw: string): string[] => {
+    if (!raw) return [];
+    let items = raw.split(/\r?\n/);
+    if (options.trimWhitespace) {
+      items = items.map((i) => i.trim());
+    }
+    if (options.skipEmpty) {
+      items = items.filter((i) => i.length > 0);
+    }
+    return items;
+  };
+
+  const itemsA = cleanList(listA);
+  const itemsB = cleanList(listB);
+
+  const getKey = (item: string) => (options.caseSensitive ? item : item.toLowerCase());
+
+  // Unique key-to-original map preserving first appearance
+  const mapA = new Map<string, string>();
+  itemsA.forEach((item) => {
+    const key = getKey(item);
+    if (!mapA.has(key)) mapA.set(key, item);
+  });
+
+  const mapB = new Map<string, string>();
+  itemsB.forEach((item) => {
+    const key = getKey(item);
+    if (!mapB.has(key)) mapB.set(key, item);
+  });
+
+  const keysA = new Set(mapA.keys());
+  const keysB = new Set(mapB.keys());
+
+  let overlapCount = 0;
+  keysA.forEach((k) => {
+    if (keysB.has(k)) overlapCount++;
+  });
+
+  const resultKeys: string[] = [];
+  const resultMap = new Map<string, string>();
+
+  switch (op) {
+    case 'diffA':
+      keysA.forEach((k) => {
+        if (!keysB.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapA.get(k)!);
+        }
+      });
+      break;
+
+    case 'diffB':
+      keysB.forEach((k) => {
+        if (!keysA.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapB.get(k)!);
+        }
+      });
+      break;
+
+    case 'intersect':
+      keysA.forEach((k) => {
+        if (keysB.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapA.get(k)!);
+        }
+      });
+      break;
+
+    case 'union':
+      keysA.forEach((k) => {
+        resultKeys.push(k);
+        resultMap.set(k, mapA.get(k)!);
+      });
+      keysB.forEach((k) => {
+        if (!keysA.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapB.get(k)!);
+        }
+      });
+      break;
+
+    case 'symDiff':
+      keysA.forEach((k) => {
+        if (!keysB.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapA.get(k)!);
+        }
+      });
+      keysB.forEach((k) => {
+        if (!keysA.has(k)) {
+          resultKeys.push(k);
+          resultMap.set(k, mapB.get(k)!);
+        }
+      });
+      break;
+  }
+
+  const finalItems = resultKeys.map((k) => resultMap.get(k)!);
+
+  // Sorting
+  if (options.sort === 'asc') {
+    finalItems.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  } else if (options.sort === 'desc') {
+    finalItems.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+  } else if (options.sort === 'numeric-asc') {
+    finalItems.sort((a, b) => {
+      const numA = parseFloat(a.replace(/[^0-9.-]/g, '')) || 0;
+      const numB = parseFloat(b.replace(/[^0-9.-]/g, '')) || 0;
+      return numA - numB;
+    });
+  } else if (options.sort === 'numeric-desc') {
+    finalItems.sort((a, b) => {
+      const numA = parseFloat(a.replace(/[^0-9.-]/g, '')) || 0;
+      const numB = parseFloat(b.replace(/[^0-9.-]/g, '')) || 0;
+      return numB - numA;
+    });
+  }
+
+  // Quoting and delimiter wrapping
+  const dummyOpts: DelimOptions = { ...DEFAULT_OPTIONS, quotes: options.quotes };
+  const { open: qOpen, close: qClose } = resolveQuotes(dummyOpts);
+  const formattedItems = finalItems.map((item) => `${qOpen}${item}${qClose}`);
+
+  const resolvedDelim = resolveDelimiter(options.delimiter);
+  let result = formattedItems.join(resolvedDelim);
+  if (options.prefix) result = `${options.prefix}${result}`;
+  if (options.suffix) result = `${result}${options.suffix}`;
+
+  return {
+    result,
+    items: finalItems,
+    countA: itemsA.length,
+    countB: itemsB.length,
+    resultCount: finalItems.length,
+    overlapCount,
+    uniqueACount: keysA.size,
+    uniqueBCount: keysB.size,
+  };
+}
+
+/**
+ * Custom Template Interpolation Engine:
+ * Replaces token placeholders like {item}, {index}, {item_lower}, {item_upper}, {item_slug}, {item_escaped}
+ */
+export function applyTemplate(
+  items: string[],
+  template: string,
+  delimiter: string = '\n'
+): string {
+  if (!items || items.length === 0 || !template) return '';
+
+  const processedLines = items.map((rawItem, idx) => {
+    const item = rawItem;
+    const lower = item.toLowerCase();
+    const upper = item.toUpperCase();
+    const title = item.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+    const slug = slugify(item);
+    const sqlEscaped = item.replace(/'/g, "''");
+    const jsonEscaped = JSON.stringify(item).slice(1, -1);
+
+    return template
+      .replace(/\{item\}/g, item)
+      .replace(/\{index\}/g, String(idx))
+      .replace(/\{index1\}|\{1-based\}|\{idx1\}/g, String(idx + 1))
+      .replace(/\{item_lower\}/g, lower)
+      .replace(/\{item_upper\}/g, upper)
+      .replace(/\{item_title\}/g, title)
+      .replace(/\{item_slug\}/g, slug)
+      .replace(/\{item_escaped\}/g, sqlEscaped)
+      .replace(/\{item_json\}/g, jsonEscaped);
+  });
+
+  return processedLines.join(delimiter);
+}
+
+/**
+ * RFC 4180 compliant single line CSV/TSV parser handling quoted cells and escaped quotes
+ */
+export function parseCsvLine(line: string, delimiter: string = ','): string[] {
+  if (!line) return [];
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
+ * Auto-detects multi-column tabular data (TSV, CSV, Pipe, Semicolon) from text
+ */
+export function detectTable(raw: string): DetectedTable {
+  const notTable: DetectedTable = {
+    isTable: false,
+    delimiter: '',
+    delimiterName: '',
+    columnCount: 0,
+    headers: [],
+    rows: [],
+    totalRows: 0,
+  };
+
+  if (!raw || raw.trim().length === 0) return notTable;
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 1) return notTable;
+
+  const candidateDelimiters = [
+    { delim: '\t', name: 'Tab (Spreadsheet / TSV)' },
+    { delim: ',', name: 'Comma (CSV)' },
+    { delim: '|', name: 'Pipe (|)' },
+    { delim: ';', name: 'Semicolon (;)' },
+  ];
+
+  const sampleLines = lines.slice(0, Math.min(lines.length, 25));
+
+  for (const candidate of candidateDelimiters) {
+    const counts = sampleLines.map((line) => {
+      const parsed = parseCsvLine(line, candidate.delim);
+      return parsed.length;
+    });
+
+    const colCount = counts[0];
+    if (colCount >= 2) {
+      const matchingCount = counts.filter((c) => c === colCount).length;
+      if (matchingCount / counts.length >= 0.7) {
+        const parsedRows = sampleLines.map((line) => parseCsvLine(line, candidate.delim));
+        const firstRow = parsedRows[0];
+        const isHeaderRow = firstRow.some((cell) => isNaN(Number(cell)) && cell.length > 0);
+        const headers = isHeaderRow
+          ? firstRow.map((h, i) => (h.trim() ? h.trim() : `Column ${i + 1}`))
+          : Array.from({ length: colCount }, (_, i) => `Column ${i + 1}`);
+
+        const dataRows = isHeaderRow ? parsedRows.slice(1) : parsedRows;
+
+        return {
+          isTable: true,
+          delimiter: candidate.delim,
+          delimiterName: candidate.name,
+          columnCount: colCount,
+          headers,
+          rows: dataRows.slice(0, 10),
+          totalRows: lines.length,
+        };
+      }
+    }
+  }
+
+  return notTable;
+}
+
+/**
+ * Extracts a specific column from multi-column tabular data
+ */
+export function extractColumnFromTable(
+  raw: string,
+  columnIndex: number,
+  skipHeader: boolean = false,
+  forcedDelimiter?: string
+): string[] {
+  if (!raw || raw.trim().length === 0) return [];
+
+  let delimiter = forcedDelimiter;
+  if (!delimiter) {
+    const detection = detectTable(raw);
+    delimiter = detection.isTable ? detection.delimiter : '\t';
+  }
+
+  const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const startIdx = skipHeader ? 1 : 0;
+  const result: string[] = [];
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const cells = parseCsvLine(lines[i], delimiter);
+    if (columnIndex >= 0 && columnIndex < cells.length) {
+      result.push(cells[columnIndex]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * SQL Dialect & Limit-Aware Formatter:
+ * Supports standard SQL IN, Oracle 1000 chunking (ORA-01795), PostgreSQL ANY(ARRAY[]), BigQuery UNNEST, and VALUES
+ */
+export function formatSqlDialect(
+  items: string[],
+  dialect: SqlDialect,
+  options: SqlDialectOptions = {}
+): string {
+  if (!items || items.length === 0) return '';
+
+  const {
+    columnName = 'id',
+    chunkSize = 1000,
+    isNumeric = false,
+  } = options;
+
+  const formatItem = (item: string) => {
+    if (isNumeric) {
+      return item.trim();
+    }
+    const escaped = item.replace(/'/g, "''");
+    return `'${escaped}'`;
+  };
+
+  const formattedItems = items.map(formatItem);
+
+  switch (dialect) {
+    case 'oracle': {
+      if (formattedItems.length <= chunkSize) {
+        return `${columnName} IN (${formattedItems.join(', ')})`;
+      }
+      const chunks: string[] = [];
+      for (let i = 0; i < formattedItems.length; i += chunkSize) {
+        const slice = formattedItems.slice(i, i + chunkSize);
+        chunks.push(`${columnName} IN (${slice.join(', ')})`);
+      }
+      return `(\n  ${chunks.join('\n  OR ')}\n)`;
+    }
+
+    case 'postgres': {
+      return `${columnName} = ANY(ARRAY[${formattedItems.join(', ')}])`;
+    }
+
+    case 'bigquery': {
+      return `${columnName} IN UNNEST([${formattedItems.join(', ')}])`;
+    }
+
+    case 'values': {
+      const rows = formattedItems.map((item) => `(${item})`);
+      return `VALUES\n  ${rows.join(',\n  ')}`;
+    }
+
+    case 'standard':
+    default: {
+      return `${columnName} IN (${formattedItems.join(', ')})`;
+    }
+  }
 }
 
