@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
-import { PresetsBar } from './components/PresetsBar';
-import { QuickChipsBar } from './components/QuickChipsBar';
-import { CenterControls } from './components/CenterControls';
+import { StudioToolbar } from './components/StudioToolbar';
 import { EditorPane } from './components/EditorPane';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { DuplicateInspector } from './components/DuplicateInspector';
@@ -159,9 +157,9 @@ export const App: React.FC = () => {
   };
 
   // Load Sample
-  const handleLoadSample = () => {
-    setColumnText(SAMPLE_INPUT);
-    handleConvertToDelimited(SAMPLE_INPUT, options);
+  const handleLoadSample = (sampleData: string = SAMPLE_INPUT) => {
+    setColumnText(sampleData);
+    handleConvertToDelimited(sampleData, options);
   };
 
   // Deduplication from Modal
@@ -195,7 +193,7 @@ export const App: React.FC = () => {
   }, [handleConvertToDelimited, handleConvertToColumn]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 transition-colors selection:bg-indigo-500 selection:text-white">
       <Navbar
         darkMode={darkMode}
         onToggleTheme={() => setDarkMode(!darkMode)}
@@ -203,33 +201,25 @@ export const App: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
-        {/* Tier 1: Presets Ribbon */}
-        <PresetsBar onSelectPreset={handleSelectPreset} currentOptions={options} />
-
-        {/* Tier 2: Instant Quick-Chips Bar */}
-        <QuickChipsBar
+        {/* Consolidated Studio Toolbar */}
+        <StudioToolbar
           options={options}
           onOptionsChange={handleUpdateOptions}
+          onSelectPreset={handleSelectPreset}
           onExtract={handleExtract}
           onReverseLines={handleReverseLines}
           onShuffleLines={handleShuffleLines}
-          onToggleSettings={() => setSettingsOpen(!settingsOpen)}
-          settingsOpen={settingsOpen}
-        />
-
-        {/* Middle Interaction Bar */}
-        <CenterControls
-          options={options}
-          onOptionsChange={handleUpdateOptions}
           onConvertToDelimited={() => handleConvertToDelimited()}
           onConvertToColumn={() => handleConvertToColumn()}
           onSwap={handleSwap}
           onClear={handleClear}
           liveMode={liveMode}
           onToggleLiveMode={() => setLiveMode(!liveMode)}
+          onToggleSettings={() => setSettingsOpen(!settingsOpen)}
+          settingsOpen={settingsOpen}
         />
 
-        {/* Tier 3: Workspaces (Column & Delimited) */}
+        {/* Workspaces (Column & Delimited) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <EditorPane
             title="Column Data"
@@ -244,7 +234,7 @@ export const App: React.FC = () => {
             placeholder={`Enter or paste column data here...\n\nExample:\n90210\n10001\n94103\n90210`}
             delimiter="\n"
             isSource={true}
-            onLoadSample={handleLoadSample}
+            onSelectSample={handleLoadSample}
             onInspectDuplicates={() => setDuplicateModalOpen(true)}
           />
 

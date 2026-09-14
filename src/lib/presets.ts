@@ -167,3 +167,48 @@ export const SAMPLE_INPUT = `90210
 60601
 02138
 10001`;
+
+export const SAMPLE_DATASETS = {
+  zipcodes: {
+    label: 'Zip Codes',
+    icon: '📍',
+    data: `90210
+10001
+94103
+90210
+30301
+60601
+02138
+10001`,
+  },
+  emails: {
+    label: 'User Emails',
+    icon: '📧',
+    data: `alex.miller@stripe.com
+sarah.connor@cyberdyne.io
+alex.miller@stripe.com
+neo@matrix.org
+ellen.ripley@weyland.corp
+bruce.wayne@wayne.enterprises`,
+  },
+  uuids: {
+    label: 'UUIDs',
+    icon: '🆔',
+    data: `550e8400-e29b-41d4-a716-446655440000
+6ba7b810-9dad-11d1-80b4-00c04fd430c8
+6ba7b811-9dad-11d1-80b4-00c04fd430c8
+550e8400-e29b-41d4-a716-446655440000
+6ba7b812-9dad-11d1-80b4-00c04fd430c8`,
+  },
+  skus: {
+    label: 'Product SKUs',
+    icon: '📦',
+    data: `SKU-99021
+SKU-11045
+SKU-77291
+SKU-99021
+SKU-33019
+SKU-55420`,
+  },
+};
+

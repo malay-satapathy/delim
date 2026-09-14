@@ -28,11 +28,12 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
   };
 
   return (
-    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
+    <div className="w-full bg-white dark:bg-obsidian-900 border border-slate-200/90 dark:border-white/[0.08] rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
       {/* Drawer Toggle Header */}
       <button
+        type="button"
         onClick={onToggleOpen}
-        className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+        className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-50/70 dark:hover:bg-obsidian-850/60 transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">

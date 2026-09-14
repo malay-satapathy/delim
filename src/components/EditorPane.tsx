@@ -7,12 +7,13 @@ import {
   Clipboard,
   Trash2,
   FileText,
-  Sparkles,
   Search,
   X,
   SlidersHorizontal,
+  FileUp,
 } from 'lucide-react';
 import { calculateStats, filterLines } from '../lib/engine';
+import { SAMPLE_DATASETS } from '../lib/presets';
 
 interface EditorPaneProps {
   title: string;
@@ -23,7 +24,7 @@ interface EditorPaneProps {
   delimiter?: string;
   isSource?: boolean;
   isPrimaryCopy?: boolean;
-  onLoadSample?: () => void;
+  onSelectSample?: (sampleData: string) => void;
   onInspectDuplicates?: () => void;
 }
 
@@ -36,13 +37,14 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   delimiter = '\n',
   isSource = false,
   isPrimaryCopy = false,
-  onLoadSample,
+  onSelectSample,
   onInspectDuplicates,
 }) => {
   const [copied, setCopied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'keep' | 'drop'>('keep');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
@@ -113,9 +115,20 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Drag and drop handler
+  // Drag and drop events
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDraggingOver(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -142,12 +155,28 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
 
   return (
     <div
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex flex-col h-[530px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50"
+      className={`relative flex flex-col h-[520px] bg-white dark:bg-obsidian-900 border rounded-2xl shadow-sm transition-all duration-200 overflow-hidden ${
+        isDraggingOver
+          ? 'border-indigo-500 ring-2 ring-indigo-500/40 shadow-glow'
+          : 'border-slate-200/90 dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-500/25 focus-within:border-indigo-500/50 dark:focus-within:shadow-glow'
+      }`}
     >
+      {/* Drag & Drop Holographic Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-40 bg-indigo-50/90 dark:bg-obsidian-950/90 backdrop-blur-sm border-2 border-dashed border-indigo-500 rounded-2xl flex flex-col items-center justify-center text-indigo-600 dark:text-indigo-400 animate-in fade-in zoom-in-95 duration-150 select-none">
+          <div className="p-4 rounded-full bg-indigo-500/10 mb-3 animate-bounce">
+            <FileUp className="w-8 h-8" />
+          </div>
+          <p className="font-bold text-sm tracking-wide">Drop file to load data</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Supports .csv, .txt, .tsv, and .json</p>
+        </div>
+      )}
+
       {/* Pane Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/80 dark:bg-obsidian-850/60 border-b border-slate-200/80 dark:border-white/[0.06] shrink-0">
         <div>
           <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-indigo-500" />
@@ -156,27 +185,17 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           <p className="text-[11px] text-slate-500 dark:text-slate-400">{subtitle}</p>
         </div>
 
-        {/* Action buttons */}
+        {/* Header Action Buttons */}
         <div className="flex items-center gap-1">
-          {isSource && onLoadSample && (
-            <button
-              onClick={onLoadSample}
-              title="Load sample dataset"
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span className="hidden sm:inline">Sample</span>
-            </button>
-          )}
-
           {isSource && (
             <button
+              type="button"
               onClick={() => setFilterOpen(!filterOpen)}
               title="Filter lines by keyword"
               className={`p-1.5 rounded-lg transition-colors ${
                 filterOpen
-                  ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                  ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-obsidian-800'
               }`}
             >
               <Search className="w-3.5 h-3.5" />
@@ -184,16 +203,17 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           )}
 
           <button
+            type="button"
             onClick={handlePaste}
             title="Paste from clipboard"
-            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-obsidian-800 rounded-lg transition-colors"
           >
             <Clipboard className="w-3.5 h-3.5" />
           </button>
 
           <label
             title="Upload .txt or .csv file"
-            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg cursor-pointer transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-obsidian-800 rounded-lg cursor-pointer transition-colors"
           >
             <Upload className="w-3.5 h-3.5" />
             <input
@@ -206,19 +226,21 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           </label>
 
           <button
+            type="button"
             onClick={handleDownload}
             disabled={!value}
             title="Download as text file"
-            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-obsidian-800 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Download className="w-3.5 h-3.5" />
           </button>
 
-          {/* Copy Button (Highlighted if primary) */}
+          {/* Copy Button */}
           <button
+            type="button"
             onClick={handleCopy}
             disabled={!value}
-            title="Copy to clipboard (Cmd/Ctrl + C)"
+            title="Copy to clipboard"
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
               copied
                 ? 'bg-emerald-600 text-white shadow-sm'
@@ -229,9 +251,11 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Copied! ✓' : isPrimaryCopy ? 'Copy Result' : 'Copy'}</span>
+            <span className="hidden sm:inline text-[9px] font-mono opacity-70">⌘C</span>
           </button>
 
           <button
+            type="button"
             onClick={() => onChange('')}
             disabled={!value}
             title="Clear text"
@@ -242,44 +266,51 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         </div>
       </div>
 
-      {/* Filter Bar (Collapsible) */}
+      {/* Filter Bar */}
       {filterOpen && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900/50 animate-in fade-in slide-in-from-top-1 text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50/50 dark:bg-obsidian-950 border-b border-indigo-100 dark:border-white/[0.06] animate-in fade-in slide-in-from-top-1 text-xs">
           <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
           <input
             type="text"
             placeholder="Filter lines containing..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applyFilter()}
-            className="flex-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyFilter();
+              if (e.key === 'Escape') setFilterOpen(false);
+            }}
+            className="flex-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-obsidian-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
-          <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900 shrink-0">
+          <div className="flex items-center rounded-lg border border-slate-200 dark:border-white/[0.1] p-0.5 bg-white dark:bg-obsidian-900 shrink-0">
             <button
+              type="button"
               onClick={() => setFilterMode('keep')}
-              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                filterMode === 'keep' ? 'bg-indigo-600 text-white' : 'text-slate-500'
+              className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                filterMode === 'keep' ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               Keep
             </button>
             <button
+              type="button"
               onClick={() => setFilterMode('drop')}
-              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                filterMode === 'drop' ? 'bg-indigo-600 text-white' : 'text-slate-500'
+              className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                filterMode === 'drop' ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               Drop
             </button>
           </div>
           <button
+            type="button"
             onClick={applyFilter}
             disabled={!filterQuery}
-            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md disabled:opacity-40"
+            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg disabled:opacity-40"
           >
             Filter
           </button>
           <button
+            type="button"
             onClick={() => setFilterOpen(false)}
             className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           >
@@ -288,13 +319,13 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         </div>
       )}
 
-      {/* Editor Body with Gutter */}
+      {/* Editor Body */}
       <div className="relative flex-1 flex overflow-hidden font-mono text-xs sm:text-sm">
         {/* Line Numbers Gutter */}
         <div
           ref={lineNumbersRef}
           aria-hidden="true"
-          className="w-11 sm:w-12 shrink-0 py-3 pr-2 text-right select-none bg-slate-50/50 dark:bg-slate-900/50 border-r border-slate-100 dark:border-slate-800/80 text-slate-300 dark:text-slate-600 overflow-hidden leading-relaxed"
+          className="w-11 sm:w-12 shrink-0 py-3 pr-2 text-right select-none bg-slate-50/40 dark:bg-obsidian-950/40 border-r border-slate-100 dark:border-white/[0.06] text-slate-300 dark:text-slate-600 overflow-hidden leading-relaxed"
         >
           {lineNumbers.map((num) => (
             <div key={num} className="h-6 leading-6">
@@ -303,7 +334,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           ))}
         </div>
 
-        {/* Textarea */}
+        {/* Main Textarea */}
         <textarea
           ref={textareaRef}
           value={value}
@@ -313,10 +344,34 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           spellCheck={false}
           className="w-full h-full p-3 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none outline-none leading-relaxed leading-6 whitespace-pre overflow-auto"
         />
+
+        {/* Empty State Interactive Starter Chips (Only on empty source pane) */}
+        {isSource && !value && onSelectSample && (
+          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 text-center select-none pl-14">
+            <div className="pointer-events-auto max-w-sm space-y-3">
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                Paste data, drag & drop a file, or try a sample:
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {Object.entries(SAMPLE_DATASETS).map(([key, sample]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => onSelectSample(sample.data)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/80 dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-all"
+                  >
+                    <span>{sample.icon}</span>
+                    <span>{sample.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer Stats Bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-50/50 dark:bg-slate-900/60 border-t border-slate-200/80 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 shrink-0 select-none">
+      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-50/60 dark:bg-obsidian-850/50 border-t border-slate-200/80 dark:border-white/[0.06] text-[11px] text-slate-500 dark:text-slate-400 shrink-0 select-none">
         <div className="flex items-center gap-3">
           <span>
             <strong className="font-semibold text-slate-700 dark:text-slate-300">{stats.lineCount}</strong> lines
