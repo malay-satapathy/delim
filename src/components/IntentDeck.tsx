@@ -14,6 +14,7 @@ interface IntentDeckProps {
   input: string;
   options: DelimOptions;
   onOptionsChange: (newOptions: Partial<DelimOptions>) => void;
+  onUpdateInput?: (newText: string, newOptions?: Partial<DelimOptions>) => void;
   onApplyExtraction?: (type: 'numbers' | 'emails' | 'urls' | 'uuids' | 'excel') => void;
   onReverseLines?: () => void;
   onShuffleLines?: () => void;
@@ -25,6 +26,7 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
   input,
   options,
   onOptionsChange,
+  onUpdateInput,
   onApplyExtraction,
   onReverseLines,
   onShuffleLines,
@@ -33,13 +35,13 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [magicPrompt, setMagicPrompt] = useState('');
-  const [magicFeedback, setMagicFeedback] = useState<string | null>(null);
+  const [magicFeedback, setMagicFeedback] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
 
   const cards: IntentCard[] = React.useMemo(() => {
     return classifyDataIntent(input);
   }, [input]);
 
-  // Copy card handler
+  // Copy card handler (copies and synchronizes active format)
   const handleCopyCard = async (card: IntentCard) => {
     try {
       await navigator.clipboard.writeText(card.formattedResult);
@@ -47,6 +49,9 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
       setTimeout(() => setCopiedId(null), 2000);
       if (onSelectResult) {
         onSelectResult(card.formattedResult);
+      }
+      if (card.options) {
+        onOptionsChange(card.options);
       }
     } catch {
       // Fallback
@@ -85,24 +90,31 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
     e.preventDefault();
     if (!magicPrompt.trim()) return;
 
-    const res = parseNaturalLanguageIntent(magicPrompt, options);
+    const res = parseNaturalLanguageIntent(magicPrompt, options, input);
 
-    if (Object.keys(res.options).length > 0) {
-      onOptionsChange(res.options);
-    }
-    if (res.extractType && onApplyExtraction) {
-      onApplyExtraction(res.extractType);
-    }
-    if (res.reverseLines && onReverseLines) {
-      onReverseLines();
-    }
-    if (res.shuffleLines && onShuffleLines) {
-      onShuffleLines();
+    if (res.matched) {
+      if (res.transformedText !== undefined && onUpdateInput) {
+        onUpdateInput(res.transformedText, res.options);
+      } else if (Object.keys(res.options).length > 0) {
+        onOptionsChange(res.options);
+      }
+      if (res.extractType && onApplyExtraction) {
+        onApplyExtraction(res.extractType);
+      }
+      if (res.reverseLines && onReverseLines) {
+        onReverseLines();
+      }
+      if (res.shuffleLines && onShuffleLines) {
+        onShuffleLines();
+      }
+
+      setMagicFeedback({ type: 'success', text: res.description });
+    } else {
+      setMagicFeedback({ type: 'warning', text: res.description });
     }
 
-    setMagicFeedback(res.description);
     setMagicPrompt('');
-    setTimeout(() => setMagicFeedback(null), 4000);
+    setTimeout(() => setMagicFeedback(null), 5000);
   };
 
   if (!input || input.trim().length === 0) {
@@ -193,10 +205,26 @@ export const IntentDeck: React.FC<IntentDeckProps> = ({
         </form>
 
         {magicFeedback && (
-          <div className="mt-1.5 px-2 py-1 rounded-lg bg-indigo-100/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-[11px] text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5 animate-in fade-in duration-150">
-            <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
+          <div
+            className={`mt-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] flex items-center gap-2 animate-in fade-in duration-150 ${
+              magicFeedback.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-200'
+                : 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800/80 text-amber-800 dark:text-amber-200'
+            }`}
+          >
+            {magicFeedback.type === 'success' ? (
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            )}
             <span>
-              Applied: <strong>{magicFeedback}</strong>
+              {magicFeedback.type === 'success' ? (
+                <>
+                  Applied: <strong>{magicFeedback.text}</strong>
+                </>
+              ) : (
+                magicFeedback.text
+              )}
             </span>
           </div>
         )}

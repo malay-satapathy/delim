@@ -121,4 +121,96 @@ describe('intent engine - parseNaturalLanguageIntent', () => {
     expect(res.extractType).toBe('emails');
     expect(res.options.deduplicate).toBe(true);
   });
+
+  it('correctly handles "remove all a in text" on input data', () => {
+    const input = 'hahahhahaaaaaaaaa';
+    const res = parseNaturalLanguageIntent('remove all a in text', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hhhhh');
+    expect(res.description).toBe('Removed all "a" from text');
+  });
+
+  it('removes vowels from text', () => {
+    const input = 'apple\nbanana\ncherry';
+    const res = parseNaturalLanguageIntent('remove all vowels', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('ppl\nbnn\nchrry');
+  });
+
+  it('removes numbers from text', () => {
+    const input = 'user123\nitem456\norder789';
+    const res = parseNaturalLanguageIntent('remove all digits', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('user\nitem\norder');
+  });
+
+  it('removes spaces from text', () => {
+    const input = 'a b c\nd e f';
+    const res = parseNaturalLanguageIntent('remove all spaces', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('abc\ndef');
+  });
+
+  it('replaces substrings in text', () => {
+    const input = 'hello foo world\ngoodbye foo';
+    const res = parseNaturalLanguageIntent('replace foo with bar', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hello bar world\ngoodbye bar');
+  });
+
+  it('replaces spaces with dashes', () => {
+    const input = 'hello world\nalpha beta gamma';
+    const res = parseNaturalLanguageIntent('replace spaces with -', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('hello-world\nalpha-beta-gamma');
+  });
+
+  it('filters and keeps lines containing term', () => {
+    const input = 'apple pie\nbanana split\ncherry tart\npineapple cake';
+    const res = parseNaturalLanguageIntent('keep lines containing apple', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('apple pie\npineapple cake');
+  });
+
+  it('removes lines containing term', () => {
+    const input = 'apple pie\nbanana split\ncherry tart\npineapple cake';
+    const res = parseNaturalLanguageIntent('remove lines containing apple', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('banana split\ncherry tart');
+  });
+
+  it('prefixes each line', () => {
+    const input = 'col1\ncol2\ncol3';
+    const res = parseNaturalLanguageIntent('prefix with tbl_', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('tbl_col1\ntbl_col2\ntbl_col3');
+  });
+
+  it('suffixes each line', () => {
+    const input = 'data\narchive\nbackup';
+    const res = parseNaturalLanguageIntent('suffix with .json', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('data.json\narchive.json\nbackup.json');
+  });
+
+  it('reverses characters in each line', () => {
+    const input = 'hello\nworld';
+    const res = parseNaturalLanguageIntent('reverse characters', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('olleh\ndlrow');
+  });
+
+  it('handles combined commands: "remove all a in text and uppercase"', () => {
+    const input = 'apple\nbanana';
+    const res = parseNaturalLanguageIntent('remove all a in text and uppercase', DEFAULT_OPTIONS, input);
+    expect(res.matched).toBe(true);
+    expect(res.transformedText).toBe('pple\nbnn');
+    expect(res.options.caseTransform).toBe('upper');
+  });
+
+  it('returns matched=false and help text for unrecognized prompts', () => {
+    const res = parseNaturalLanguageIntent('make me a hot cappuccino please', DEFAULT_OPTIONS);
+    expect(res.matched).toBe(false);
+    expect(res.description).toContain('Could not recognize prompt');
+  });
 });

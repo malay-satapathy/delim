@@ -9,6 +9,7 @@ export interface IntentCard {
   description: string;
   formattedResult: string;
   hotkey: string; // e.g. "⌘1", "⌘2", "⌘3"
+  options?: Partial<DelimOptions>;
 }
 
 export interface NaturalLanguageResult {
@@ -17,6 +18,8 @@ export interface NaturalLanguageResult {
   extractType?: 'numbers' | 'emails' | 'urls' | 'uuids' | 'excel';
   reverseLines?: boolean;
   shuffleLines?: boolean;
+  transformedText?: string;
+  matched: boolean;
 }
 
 /**
@@ -81,14 +84,19 @@ export function classifyDataIntent(input: string): IntentCard[] {
     return columnToDelimited(input, { ...preset.options, ...customOverrides });
   };
 
+  const getPresetOptions = (presetId: string, customOverrides?: Partial<DelimOptions>): Partial<DelimOptions> => {
+    const preset = PRESETS.find((p) => p.id === presetId);
+    return { ...(preset ? preset.options : {}), ...customOverrides };
+  };
+
   // Case 1: Numeric IDs / Zip Codes / Quantities
   if (isNumeric) {
-    // Determine if numbers might benefit from zero-padding (e.g. zip codes with varying lengths)
     const lengths = sample.map((l) => l.length);
     const maxLen = Math.max(...lengths);
     const minLen = Math.min(...lengths);
     const shouldSuggestPad = maxLen > minLen && maxLen <= 10;
 
+    const sqlNumOpts = getPresetOptions('sql-numbers', { deduplicate: hasDuplicates });
     cards.push({
       id: 'sql-numbers',
       title: 'SQL IN (Numbers)',
@@ -96,51 +104,58 @@ export function classifyDataIntent(input: string): IntentCard[] {
       description: 'Unquoted numeric ID list: WHERE id IN (1, 2, 3)',
       formattedResult: formatWithPreset('sql-numbers', { deduplicate: hasDuplicates }),
       hotkey: '⌘1',
+      options: sqlNumOpts,
     });
 
+    const jsonNumOpts: Partial<DelimOptions> = {
+      delimiter: ', ',
+      quotes: 'none',
+      globalPrefix: '[\n  ',
+      globalSuffix: '\n]',
+      deduplicate: hasDuplicates,
+    };
     cards.push({
       id: 'json-numbers',
       title: 'JSON Array',
       badge: 'JSON',
       description: 'JSON numeric array format: [1, 2, 3]',
-      formattedResult: columnToDelimited(input, {
-        delimiter: ', ',
-        quotes: 'none',
-        globalPrefix: '[\n  ',
-        globalSuffix: '\n]',
-        deduplicate: hasDuplicates,
-      }),
+      formattedResult: columnToDelimited(input, jsonNumOpts),
       hotkey: '⌘2',
+      options: jsonNumOpts,
     });
 
     if (shouldSuggestPad) {
+      const padOpts: Partial<DelimOptions> = {
+        delimiter: ', ',
+        quotes: 'single',
+        zeroPadWidth: maxLen,
+        deduplicate: hasDuplicates,
+      };
       cards.push({
         id: 'zfill-csv',
         title: `Pad 0s (${maxLen} Digits)`,
         badge: 'PANDAS',
         description: `Zero-padded strings: '00042', '01234'`,
-        formattedResult: columnToDelimited(input, {
-          delimiter: ', ',
-          quotes: 'single',
-          zeroPadWidth: maxLen,
-          deduplicate: hasDuplicates,
-        }),
+        formattedResult: columnToDelimited(input, padOpts),
         hotkey: '⌘3',
+        options: padOpts,
       });
     } else {
+      const pyNumOpts: Partial<DelimOptions> = {
+        delimiter: ', ',
+        quotes: 'none',
+        globalPrefix: '[',
+        globalSuffix: ']',
+        deduplicate: hasDuplicates,
+      };
       cards.push({
         id: 'python-list-num',
         title: 'Python List',
         badge: 'PYTHON',
         description: 'Native Python list syntax: [1, 2, 3]',
-        formattedResult: columnToDelimited(input, {
-          delimiter: ', ',
-          quotes: 'none',
-          globalPrefix: '[',
-          globalSuffix: ']',
-          deduplicate: hasDuplicates,
-        }),
+        formattedResult: columnToDelimited(input, pyNumOpts),
         hotkey: '⌘3',
+        options: pyNumOpts,
       });
     }
 
@@ -149,19 +164,22 @@ export function classifyDataIntent(input: string): IntentCard[] {
 
   // Case 2: Email Addresses
   if (isEmail) {
+    const emailOpts: Partial<DelimOptions> = {
+      delimiter: '; ',
+      quotes: 'none',
+      deduplicate: true,
+    };
     cards.push({
       id: 'email-bcc',
       title: 'Email Client (Bcc/To)',
       badge: 'EMAIL',
       description: 'Semicolon delimited for Outlook / Gmail recipients',
-      formattedResult: columnToDelimited(input, {
-        delimiter: '; ',
-        quotes: 'none',
-        deduplicate: true,
-      }),
+      formattedResult: columnToDelimited(input, emailOpts),
       hotkey: '⌘1',
+      options: emailOpts,
     });
 
+    const sqlEmailOpts = getPresetOptions('sql-in', { deduplicate: true });
     cards.push({
       id: 'sql-in-emails',
       title: 'SQL IN (Emails)',
@@ -169,8 +187,10 @@ export function classifyDataIntent(input: string): IntentCard[] {
       description: "WHERE email IN ('user@example.com')",
       formattedResult: formatWithPreset('sql-in', { deduplicate: true }),
       hotkey: '⌘2',
+      options: sqlEmailOpts,
     });
 
+    const pyEmailOpts = getPresetOptions('python-list', { deduplicate: true });
     cards.push({
       id: 'python-list-emails',
       title: 'Python List',
@@ -178,6 +198,7 @@ export function classifyDataIntent(input: string): IntentCard[] {
       description: "['alice@work.org', 'bob@work.org']",
       formattedResult: formatWithPreset('python-list', { deduplicate: true }),
       hotkey: '⌘3',
+      options: pyEmailOpts,
     });
 
     return cards.slice(0, 3);
@@ -185,29 +206,34 @@ export function classifyDataIntent(input: string): IntentCard[] {
 
   // Case 2.5: URLs / Hyperlinks
   if (isUrl) {
+    const urlCsvOpts: Partial<DelimOptions> = { delimiter: ', ', deduplicate: true };
     cards.push({
       id: 'urls-csv',
       title: 'Comma URLs',
       badge: 'URLS',
       description: 'Clean comma-separated URL links',
-      formattedResult: columnToDelimited(input, { delimiter: ', ', deduplicate: true }),
+      formattedResult: columnToDelimited(input, urlCsvOpts),
       hotkey: '⌘1',
+      options: urlCsvOpts,
     });
 
+    const mdOpts: Partial<DelimOptions> = {
+      delimiter: '\n',
+      itemTagOpen: '- <',
+      itemTagClose: '>',
+      deduplicate: true,
+    };
     cards.push({
       id: 'urls-markdown',
       title: 'Markdown List',
       badge: 'MARKDOWN',
       description: '- <url> markdown list items',
-      formattedResult: columnToDelimited(input, {
-        delimiter: '\n',
-        itemTagOpen: '- <',
-        itemTagClose: '>',
-        deduplicate: true,
-      }),
+      formattedResult: columnToDelimited(input, mdOpts),
       hotkey: '⌘2',
+      options: mdOpts,
     });
 
+    const jsonUrlOpts = getPresetOptions('json-array', { deduplicate: true });
     cards.push({
       id: 'urls-json',
       title: 'JSON Array',
@@ -215,6 +241,7 @@ export function classifyDataIntent(input: string): IntentCard[] {
       description: '["https://...", "https://..."]',
       formattedResult: formatWithPreset('json-array', { deduplicate: true }),
       hotkey: '⌘3',
+      options: jsonUrlOpts,
     });
 
     return cards.slice(0, 3);
@@ -223,49 +250,56 @@ export function classifyDataIntent(input: string): IntentCard[] {
   // Case 3: Messy Excel Pasted Data with Quotes / Tabs
   if (hasExcelTabsOrQuotes) {
     const cleaned = cleanExcelPasted(input);
+    const cleanCsvOpts: Partial<DelimOptions> = { delimiter: ', ', deduplicate: hasDuplicates };
     cards.push({
       id: 'clean-csv',
       title: 'Cleaned CSV',
       badge: 'EXCEL FIX',
       description: 'Stripped spreadsheet tabs, quotes & artifact characters',
-      formattedResult: columnToDelimited(cleaned, { delimiter: ', ', deduplicate: hasDuplicates }),
+      formattedResult: columnToDelimited(cleaned, cleanCsvOpts),
       hotkey: '⌘1',
+      options: cleanCsvOpts,
     });
 
+    const cleanSqlOpts: Partial<DelimOptions> = {
+      delimiter: ', ',
+      quotes: 'single',
+      globalPrefix: '(',
+      globalSuffix: ')',
+      deduplicate: hasDuplicates,
+    };
     cards.push({
       id: 'clean-sql',
       title: 'Cleaned SQL IN',
       badge: 'SQL',
       description: "Cleaned and quoted: ('item 1', 'item 2')",
-      formattedResult: columnToDelimited(cleaned, {
-        delimiter: ', ',
-        quotes: 'single',
-        globalPrefix: '(',
-        globalSuffix: ')',
-        deduplicate: hasDuplicates,
-      }),
+      formattedResult: columnToDelimited(cleaned, cleanSqlOpts),
       hotkey: '⌘2',
+      options: cleanSqlOpts,
     });
 
+    const cleanJsonOpts: Partial<DelimOptions> = {
+      delimiter: ', ',
+      quotes: 'double',
+      globalPrefix: '[\n  ',
+      globalSuffix: '\n]',
+      deduplicate: hasDuplicates,
+    };
     cards.push({
       id: 'clean-json',
       title: 'Cleaned JSON Array',
       badge: 'JSON',
       description: 'Valid JSON array with escaped quotes',
-      formattedResult: columnToDelimited(cleaned, {
-        delimiter: ', ',
-        quotes: 'double',
-        globalPrefix: '[\n  ',
-        globalSuffix: '\n]',
-        deduplicate: hasDuplicates,
-      }),
+      formattedResult: columnToDelimited(cleaned, cleanJsonOpts),
       hotkey: '⌘3',
+      options: cleanJsonOpts,
     });
 
     return cards.slice(0, 3);
   }
 
   // Case 4: General Alphanumeric Strings / SKUs / Names
+  const sqlStringOpts = getPresetOptions('sql-in', { deduplicate: hasDuplicates });
   cards.push({
     id: 'sql-in-strings',
     title: 'SQL IN (Strings)',
@@ -273,8 +307,10 @@ export function classifyDataIntent(input: string): IntentCard[] {
     description: "WHERE col IN ('a', 'b', 'c')",
     formattedResult: formatWithPreset('sql-in', { deduplicate: hasDuplicates }),
     hotkey: '⌘1',
+    options: sqlStringOpts,
   });
 
+  const jsonOpts = getPresetOptions('json-array', { deduplicate: hasDuplicates });
   cards.push({
     id: 'json-array',
     title: 'JSON Array',
@@ -282,21 +318,25 @@ export function classifyDataIntent(input: string): IntentCard[] {
     description: '["item1", "item2", "item3"]',
     formattedResult: formatWithPreset('json-array', { deduplicate: hasDuplicates }),
     hotkey: '⌘2',
+    options: jsonOpts,
   });
 
   if (hasDuplicates) {
+    const freqOpts: Partial<DelimOptions> = {
+      delimiter: ', ',
+      sort: 'freq-desc',
+    };
     cards.push({
       id: 'freq-desc',
       title: 'Frequency Ranked',
       badge: 'PANDAS',
       description: 'Sorted by occurrence count (most frequent first)',
-      formattedResult: columnToDelimited(input, {
-        delimiter: ', ',
-        sort: 'freq-desc',
-      }),
+      formattedResult: columnToDelimited(input, freqOpts),
       hotkey: '⌘3',
+      options: freqOpts,
     });
   } else {
+    const csvOpts = getPresetOptions('csv-plain');
     cards.push({
       id: 'csv-plain',
       title: 'Plain CSV',
@@ -304,6 +344,7 @@ export function classifyDataIntent(input: string): IntentCard[] {
       description: 'Clean comma-separated values: a, b, c',
       formattedResult: formatWithPreset('csv-plain'),
       hotkey: '⌘3',
+      options: csvOpts,
     });
   }
 
@@ -312,106 +353,494 @@ export function classifyDataIntent(input: string): IntentCard[] {
 
 /**
  * Pure On-Device Natural Language Intent Parser ("The Magic Wand")
- * Translates human thoughts into exact delim options and triggers.
+ * Translates human thoughts into exact delim options and text mutations.
  * Runs 100% locally with zero external network or AI API latency.
  */
 export function parseNaturalLanguageIntent(
   prompt: string,
-  _currentOptions?: DelimOptions
+  _currentOptions?: Partial<DelimOptions>,
+  inputText?: string
 ): NaturalLanguageResult {
-  const p = prompt.toLowerCase().trim();
+  const p = prompt.trim();
+  const lowerPrompt = p.toLowerCase();
   const options: Partial<DelimOptions> = {};
   const descriptions: string[] = [];
   let extractType: NaturalLanguageResult['extractType'];
   let reverseLines = false;
   let shuffleLines = false;
+  let matched = false;
 
-  // 1. Target Format / Presets
-  if (p.includes('postgres') || p.includes('any(array')) {
+  let currentText = inputText !== undefined ? inputText : '';
+
+  // Reserved keywords that should not be treated as literal remove targets
+  const reservedWords = new Set([
+    'duplicate',
+    'duplicates',
+    'dupe',
+    'dupes',
+    'blank',
+    'blanks',
+    'empty',
+    'empty line',
+    'empty lines',
+    'blank line',
+    'blank lines',
+    'space',
+    'spaces',
+    'whitespace',
+    'quote',
+    'quotes',
+    'single quote',
+    'single quotes',
+    'double quote',
+    'double quotes',
+    'vowel',
+    'vowels',
+    'digit',
+    'digits',
+    'number',
+    'numbers',
+    'letter',
+    'letters',
+    'alphabet',
+    'alphabets',
+    'punctuation',
+    'symbol',
+    'symbols',
+    'special character',
+    'special characters',
+    'dash',
+    'dashes',
+    'hyphen',
+    'hyphens',
+    'comma',
+    'commas',
+    'dot',
+    'dots',
+    'period',
+    'periods',
+    'bracket',
+    'brackets',
+    'parenthesis',
+    'parentheses',
+    'line',
+    'lines',
+    'first',
+    'last',
+  ]);
+
+  // ==========================================
+  // 1. Text Mutations (Removal / Replace / Filter)
+  // ==========================================
+
+  // A. Blank lines removal
+  if (/\b(?:remove|delete|drop|strip|filter out)\s+(?:all\s+)?(?:empty|blank)\s*(?:lines?)?\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .filter((line) => line.trim().length > 0)
+        .join('\n');
+    }
+    options.skipEmpty = true;
+    descriptions.push('Removed blank lines');
+    matched = true;
+  }
+
+  // B. Space / whitespace removal or trim
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?spaces?\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/ +/g, '');
+    }
+    descriptions.push('Removed all spaces');
+    matched = true;
+  } else if (/\b(?:trim|strip)\s+(?:all\s+)?whitespace\b/i.test(lowerPrompt) || lowerPrompt === 'trim') {
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((l) => l.trim())
+        .join('\n');
+    }
+    options.trimWhitespace = true;
+    descriptions.push('Trimmed whitespace');
+    matched = true;
+  }
+
+  // C. Vowels removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?vowels?\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/[aeiouAEIOU]/g, '');
+    }
+    descriptions.push('Removed all vowels');
+    matched = true;
+  }
+
+  // D. Numbers / Digits removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:digits?|numbers?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/\d+/g, '');
+    }
+    descriptions.push('Removed all numbers');
+    matched = true;
+  }
+
+  // E. Letters removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:letters?|alphabets?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/[a-zA-Z]+/g, '');
+    }
+    descriptions.push('Removed all letters');
+    matched = true;
+  }
+
+  // F. Punctuation / special characters removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:punctuation|symbols?|special\s+characters?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/[^\w\s\r\n]/g, '');
+    }
+    descriptions.push('Removed special characters');
+    matched = true;
+  }
+
+  // G. Quotes removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:quotes?|single\s+quotes?|double\s+quotes?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/['"`]/g, '');
+    }
+    options.quotes = 'none';
+    descriptions.push('Removed all quotes');
+    matched = true;
+  }
+
+  // H. Commas removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?commas?\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/,/g, '');
+    }
+    descriptions.push('Removed all commas');
+    matched = true;
+  }
+
+  // I. Dashes removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:dashes?|hyphens?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/-/g, '');
+    }
+    descriptions.push('Removed all dashes');
+    matched = true;
+  }
+
+  // J. Periods / dots removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:dots?|periods?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/\./g, '');
+    }
+    descriptions.push('Removed all periods');
+    matched = true;
+  }
+
+  // K. Brackets removal
+  if (/\b(?:remove|delete|strip)\s+(?:all\s+)?(?:brackets?|parentheses?|parens?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText.replace(/[[\]{}()]/g, '');
+    }
+    descriptions.push('Removed all brackets');
+    matched = true;
+  }
+
+  // L. Remove lines containing / with
+  const removeLinesMatch = lowerPrompt.match(
+    /\b(?:remove|delete|drop|exclude)\s+(?:all\s+)?lines?\s+(?:containing|with)\s+['"]?([^'"]+?)['"]?(?:\s+(?:in|from)\s+text)?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (removeLinesMatch && removeLinesMatch[1]) {
+    const target = removeLinesMatch[1].trim();
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .filter((line) => !line.toLowerCase().includes(target.toLowerCase()))
+        .join('\n');
+    }
+    descriptions.push(`Removed lines containing "${target}"`);
+    matched = true;
+  }
+
+  // M. Keep / filter lines containing / with
+  const keepLinesMatch = lowerPrompt.match(
+    /\b(?:keep|filter|retain)\s+(?:only\s+)?(?:lines?\s+)?(?:containing|with)\s+['"]?([^'"]+?)['"]?(?:\s+(?:in|from)\s+text)?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (keepLinesMatch && keepLinesMatch[1]) {
+    const target = keepLinesMatch[1].trim();
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .filter((line) => line.toLowerCase().includes(target.toLowerCase()))
+        .join('\n');
+    }
+    descriptions.push(`Kept lines containing "${target}"`);
+    matched = true;
+  }
+
+  // N. Remove first N chars
+  const removeFirstMatch = lowerPrompt.match(
+    /\b(?:remove|drop|delete|strip)\s+(?:the\s+)?first\s+(\d+)\s*(?:chars?|characters?|letters?)/i
+  );
+  if (removeFirstMatch && removeFirstMatch[1]) {
+    const count = parseInt(removeFirstMatch[1], 10);
+    if (count > 0 && inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((line) => line.slice(count))
+        .join('\n');
+    }
+    descriptions.push(`Removed first ${count} characters`);
+    matched = true;
+  }
+
+  // O. Remove last N chars
+  const removeLastMatch = lowerPrompt.match(
+    /\b(?:remove|drop|delete|strip)\s+(?:the\s+)?last\s+(\d+)\s*(?:chars?|characters?|letters?)/i
+  );
+  if (removeLastMatch && removeLastMatch[1]) {
+    const count = parseInt(removeLastMatch[1], 10);
+    if (count > 0 && inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((line) => (line.length > count ? line.slice(0, -count) : ''))
+        .join('\n');
+    }
+    descriptions.push(`Removed last ${count} characters`);
+    matched = true;
+  }
+
+  // P. Arbitrary Substring / Character Removal (e.g. "remove all a in text", "remove all a", "delete 'test'")
+  const genericRemoveMatch = lowerPrompt.match(
+    /\b(?:remove|delete|strip|drop|erase)\s+(?:all\s+)?(?:the\s+)?(?:letters?\s+|characters?\s+|chars?\s+)?(?:['"]?([^'"]+?)['"]?)(?:\s+(?:in|from)\s+(?:text|data|string|each\s+line))?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (genericRemoveMatch && genericRemoveMatch[1]) {
+    const rawTarget = genericRemoveMatch[1].trim();
+    if (!reservedWords.has(rawTarget.toLowerCase())) {
+      const target = rawTarget;
+      if (inputText !== undefined) {
+        const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        currentText = currentText.replace(new RegExp(escaped, 'gi'), '');
+      }
+      descriptions.push(`Removed all "${target}" from text`);
+      matched = true;
+    }
+  }
+
+  // Q. Substring Replacement (e.g. "replace all a with b", "replace foo with bar", "replace spaces with underscores")
+  const replaceMatch = lowerPrompt.match(
+    /\b(?:replace|change|substitute)\s+(?:all\s+)?['"]?([^'"]+?)['"]?\s+(?:with|to|by|into)\s+['"]?([^'"]*?)['"]?(?:\s+(?:in|from)\s+text)?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (replaceMatch && replaceMatch[1]) {
+    const fromTarget = replaceMatch[1].trim();
+    const toTarget = replaceMatch[2] ?? '';
+    if (fromTarget.toLowerCase() === 'spaces' || fromTarget.toLowerCase() === 'space') {
+      if (inputText !== undefined) {
+        currentText = currentText.replace(/ +/g, toTarget);
+      }
+      descriptions.push(`Replaced spaces with "${toTarget}"`);
+      matched = true;
+    } else if (fromTarget.toLowerCase() === 'commas' || fromTarget.toLowerCase() === 'comma') {
+      if (inputText !== undefined) {
+        currentText = currentText.replace(/,/g, toTarget);
+      }
+      descriptions.push(`Replaced commas with "${toTarget}"`);
+      matched = true;
+    } else if (fromTarget.toLowerCase() === 'dashes' || fromTarget.toLowerCase() === 'dash') {
+      if (inputText !== undefined) {
+        currentText = currentText.replace(/-/g, toTarget);
+      }
+      descriptions.push(`Replaced dashes with "${toTarget}"`);
+      matched = true;
+    } else {
+      if (inputText !== undefined) {
+        const escaped = fromTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        currentText = currentText.replace(new RegExp(escaped, 'gi'), toTarget);
+      }
+      descriptions.push(`Replaced "${fromTarget}" with "${toTarget}"`);
+      matched = true;
+    }
+  }
+
+  // R. Prefix each line
+  const prefixMatch = lowerPrompt.match(
+    /\b(?:prefix|prepend|add prefix)\s+(?:with\s+|each\s+line\s+with\s+|to\s+each\s+line\s+with\s+)?['"]?([^'"]+?)['"]?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (prefixMatch && prefixMatch[1]) {
+    const prefix = prefixMatch[1];
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((l) => (l.length > 0 ? `${prefix}${l}` : l))
+        .join('\n');
+    }
+    descriptions.push(`Prefixed each line with "${prefix}"`);
+    matched = true;
+  }
+
+  // S. Suffix each line
+  const suffixMatch = lowerPrompt.match(
+    /\b(?:suffix|append|add suffix)\s+(?:with\s+|to\s+each\s+line\s+with\s+|to\s+each\s+line\s+)?['"]?([^'"]+?)['"]?(?:\s*$|\s+(?:and|then)\s+)/i
+  );
+  if (suffixMatch && suffixMatch[1]) {
+    const suffix = suffixMatch[1];
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((l) => (l.length > 0 ? `${l}${suffix}` : l))
+        .join('\n');
+    }
+    descriptions.push(`Suffixed each line with "${suffix}"`);
+    matched = true;
+  }
+
+  // T. Reverse characters in each line
+  if (/\b(?:reverse\s+(?:each\s+)?(?:characters?|text|string|word)|flip\s+characters?)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((l) => l.split('').reverse().join(''))
+        .join('\n');
+    }
+    descriptions.push('Reversed characters in each line');
+    matched = true;
+  }
+
+  // U. Slugify
+  if (/\b(?:slugify|make\s+slugs?|kebab\s+case|url\s+slug)\b/i.test(lowerPrompt)) {
+    if (inputText !== undefined) {
+      currentText = currentText
+        .split(/\r\n|\r|\n/)
+        .map((l) =>
+          l
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+        )
+        .join('\n');
+    }
+    descriptions.push('Converted lines to URL slugs');
+    matched = true;
+  }
+
+  // ==========================================
+  // 2. Delimiter Presets & SQL Dialects
+  // ==========================================
+  if (lowerPrompt.includes('postgres') || lowerPrompt.includes('any(array')) {
     options.delimiter = ', ';
     options.quotes = 'single';
     options.globalPrefix = 'ANY(ARRAY[';
     options.globalSuffix = '])';
     descriptions.push('PostgreSQL ANY(ARRAY[...])');
-  } else if (p.includes('bigquery') || p.includes('unnest')) {
+    matched = true;
+  } else if (lowerPrompt.includes('bigquery') || lowerPrompt.includes('unnest')) {
     options.delimiter = ', ';
     options.quotes = 'single';
     options.globalPrefix = 'IN UNNEST([';
     options.globalSuffix = '])';
     descriptions.push('BigQuery IN UNNEST([...])');
-  } else if (p.includes('python list') || p.includes('py list')) {
+    matched = true;
+  } else if (lowerPrompt.includes('python list') || lowerPrompt.includes('py list')) {
     options.delimiter = ', ';
-    options.quotes = p.includes('number') || p.includes('num') ? 'none' : 'single';
+    options.quotes = lowerPrompt.includes('number') || lowerPrompt.includes('num') ? 'none' : 'single';
     options.globalPrefix = '[';
     options.globalSuffix = ']';
     descriptions.push('Python List [...]');
-  } else if (p.includes('python set') || p.includes('py set')) {
+    matched = true;
+  } else if (lowerPrompt.includes('python set') || lowerPrompt.includes('py set')) {
     options.delimiter = ', ';
-    options.quotes = p.includes('number') || p.includes('num') ? 'none' : 'single';
+    options.quotes = lowerPrompt.includes('number') || lowerPrompt.includes('num') ? 'none' : 'single';
     options.globalPrefix = '{';
     options.globalSuffix = '}';
     descriptions.push('Python Set {...}');
-  } else if (p.includes('python tuple') || p.includes('py tuple')) {
+    matched = true;
+  } else if (lowerPrompt.includes('python tuple') || lowerPrompt.includes('py tuple')) {
     options.delimiter = ', ';
-    options.quotes = p.includes('number') || p.includes('num') ? 'none' : 'single';
+    options.quotes = lowerPrompt.includes('number') || lowerPrompt.includes('num') ? 'none' : 'single';
     options.globalPrefix = '(';
     options.globalSuffix = ')';
     descriptions.push('Python Tuple (...)');
-  } else if (p.includes('json') || p.includes('json array')) {
+    matched = true;
+  } else if (lowerPrompt.includes('json') || lowerPrompt.includes('json array')) {
     options.delimiter = ', ';
     options.quotes = 'double';
     options.globalPrefix = '[\n  ';
     options.globalSuffix = '\n]';
     descriptions.push('JSON Array');
-  } else if (p.includes('html') || p.includes('<li>')) {
+    matched = true;
+  } else if (lowerPrompt.includes('html') || lowerPrompt.includes('<li>')) {
     options.delimiter = '\n';
     options.itemTagOpen = '<li>';
     options.itemTagClose = '</li>';
     options.globalPrefix = '<ul>\n';
     options.globalSuffix = '\n</ul>';
     descriptions.push('HTML <li> List');
-  } else if (p.includes('sql') || p.includes('in clause')) {
+    matched = true;
+  } else if (lowerPrompt.includes('sql') || lowerPrompt.includes('in clause')) {
     options.delimiter = ', ';
-    options.quotes = p.includes('number') || p.includes('num') ? 'none' : 'single';
+    options.quotes = lowerPrompt.includes('number') || lowerPrompt.includes('num') ? 'none' : 'single';
     options.globalPrefix = '(';
     options.globalSuffix = ')';
     descriptions.push(options.quotes === 'none' ? 'SQL IN (Numbers)' : 'SQL IN (Strings)');
-  } else if (p.includes('tsv') || p.includes('tab')) {
+    matched = true;
+  } else if (lowerPrompt.includes('tsv') || lowerPrompt.includes('tab separated')) {
     options.delimiter = '\t';
     descriptions.push('Tab-separated (TSV)');
-  } else if (p.includes('pipe')) {
+    matched = true;
+  } else if (lowerPrompt.includes('pipe')) {
     options.delimiter = '|';
     descriptions.push('Pipe-separated (|)');
-  } else if (p.includes('semicolon')) {
+    matched = true;
+  } else if (lowerPrompt.includes('semicolon')) {
     options.delimiter = '; ';
     descriptions.push('Semicolon-separated (; )');
-  } else if (p.includes('csv') || p.includes('comma')) {
-    options.delimiter = p.includes('space') ? ', ' : ',';
+    matched = true;
+  } else if (lowerPrompt.includes('csv') || lowerPrompt.includes('comma')) {
+    options.delimiter = lowerPrompt.includes('space') ? ', ' : ',';
     descriptions.push('Comma-separated (CSV)');
+    matched = true;
   }
 
-  // 2. Quotes
-  if (p.includes('single quote') || p.includes('single-quote')) {
+  // ==========================================
+  // 3. Quotes
+  // ==========================================
+  if (lowerPrompt.includes('single quote') || lowerPrompt.includes('single-quote')) {
     options.quotes = 'single';
     descriptions.push("single quotes (')");
-  } else if (p.includes('double quote') || p.includes('double-quote')) {
+    matched = true;
+  } else if (lowerPrompt.includes('double quote') || lowerPrompt.includes('double-quote')) {
     options.quotes = 'double';
     descriptions.push('double quotes (")');
-  } else if (p.includes('backtick')) {
+    matched = true;
+  } else if (lowerPrompt.includes('backtick')) {
     options.quotes = 'backtick';
     descriptions.push('backticks (`)');
-  } else if (p.includes('no quote') || p.includes('unquoted')) {
+    matched = true;
+  } else if (lowerPrompt.includes('no quote') || lowerPrompt.includes('unquoted')) {
     options.quotes = 'none';
     descriptions.push('unquoted');
+    matched = true;
   }
 
-  // 3. Deduplication & pandas drop_duplicates
-  if (p.includes('dedupe') || p.includes('deduplicate') || p.includes('unique') || p.includes('remove duplicate')) {
+  // ==========================================
+  // 4. Deduplication & pandas drop_duplicates
+  // ==========================================
+  if (
+    lowerPrompt.includes('dedupe') ||
+    lowerPrompt.includes('deduplicate') ||
+    lowerPrompt.includes('unique') ||
+    lowerPrompt.includes('remove duplicate') ||
+    lowerPrompt.includes('remove duplicates')
+  ) {
     options.deduplicate = true;
-    if (p.includes('keep last') || p.includes('last occurrence')) {
+    matched = true;
+    if (lowerPrompt.includes('keep last') || lowerPrompt.includes('last occurrence')) {
       options.deduplicateStrategy = 'last';
       descriptions.push('deduplicate (keep last)');
-    } else if (p.includes('singleton') || p.includes('drop all repeat') || p.includes('only once')) {
+    } else if (lowerPrompt.includes('singleton') || lowerPrompt.includes('drop all repeat') || lowerPrompt.includes('only once')) {
       options.deduplicateStrategy = 'none';
       descriptions.push('strictly singletons');
     } else {
@@ -420,79 +849,98 @@ export function parseNaturalLanguageIntent(
     }
   }
 
-  // 4. Zero-Padding (pandas zfill)
-  const padMatch = p.match(/(?:pad|zfill|zero pad|leading zero).*?(\d+)/i) || p.match(/(\d+)\s*(?:digit|char|zeros?)/i);
+  // ==========================================
+  // 5. Zero-Padding (pandas zfill)
+  // ==========================================
+  const padMatch = lowerPrompt.match(/(?:pad|zfill|zero pad|leading zero).*?(\d+)/i) || lowerPrompt.match(/(\d+)\s*(?:digit|char|zeros?)/i);
   if (padMatch && padMatch[1]) {
     const width = parseInt(padMatch[1], 10);
     if (width > 0 && width <= 20) {
       options.zeroPadWidth = width;
-      descriptions.push(`pad 0s to ${width} digits (pandas zfill)`);
+      descriptions.push(`pad 0s to ${width} digits`);
+      matched = true;
     }
   }
 
-  // 5. Case Transformation
-  if (p.includes('uppercase') || p.includes('upper') || p.includes('all caps')) {
+  // ==========================================
+  // 6. Case Transformation
+  // ==========================================
+  if (lowerPrompt.includes('uppercase') || lowerPrompt.includes('upper') || lowerPrompt.includes('all caps')) {
     options.caseTransform = 'upper';
     descriptions.push('UPPERCASE');
-  } else if (p.includes('lowercase') || p.includes('lower')) {
+    matched = true;
+  } else if (lowerPrompt.includes('lowercase') || lowerPrompt.includes('lower')) {
     options.caseTransform = 'lower';
     descriptions.push('lowercase');
-  } else if (p.includes('title case') || p.includes('capitalize')) {
+    matched = true;
+  } else if (lowerPrompt.includes('title case') || lowerPrompt.includes('capitalize')) {
     options.caseTransform = 'title';
     descriptions.push('Title Case');
+    matched = true;
   }
 
-  // 6. Sorting & Ordering
-  if (p.includes('frequency') || p.includes('value_count') || p.includes('most common') || p.includes('most frequent')) {
+  // ==========================================
+  // 7. Sorting & Ordering
+  // ==========================================
+  if (
+    lowerPrompt.includes('frequency') ||
+    lowerPrompt.includes('value_count') ||
+    lowerPrompt.includes('most common') ||
+    lowerPrompt.includes('most frequent')
+  ) {
     options.sort = 'freq-desc';
-    descriptions.push('frequency sort (high → low)');
-  } else if (p.includes('sort asc') || p.includes('alphabetical') || p.includes('a to z') || p.includes('a-z')) {
+    descriptions.push('frequency sort');
+    matched = true;
+  } else if (lowerPrompt.includes('sort asc') || lowerPrompt.includes('alphabetical') || lowerPrompt.includes('a to z') || lowerPrompt.includes('a-z')) {
     options.sort = 'asc';
     descriptions.push('sort ascending');
-  } else if (p.includes('sort desc') || p.includes('z to a') || p.includes('z-a')) {
+    matched = true;
+  } else if (lowerPrompt.includes('sort desc') || lowerPrompt.includes('z to a') || lowerPrompt.includes('z-a')) {
     options.sort = 'desc';
     descriptions.push('sort descending');
-  } else if (p.includes('sort num') || p.includes('numeric sort')) {
+    matched = true;
+  } else if (lowerPrompt.includes('sort num') || lowerPrompt.includes('numeric sort')) {
     options.sort = 'numeric-asc';
-    descriptions.push('sort numeric ascending');
-  } else if (p.includes('reverse') || p.includes('upside down')) {
+    descriptions.push('sort numeric');
+    matched = true;
+  } else if (lowerPrompt.includes('reverse lines') || lowerPrompt.includes('reverse line order') || lowerPrompt.includes('upside down')) {
     reverseLines = true;
     descriptions.push('reverse line order');
-  } else if (p.includes('shuffle') || p.includes('random')) {
+    matched = true;
+  } else if (lowerPrompt.includes('shuffle') || lowerPrompt.includes('random')) {
     shuffleLines = true;
     descriptions.push('random shuffle');
+    matched = true;
   }
 
-  // 7. Extractors
-  if (p.includes('extract email') || p.includes('only email')) {
+  // ==========================================
+  // 8. Extractors
+  // ==========================================
+  if (lowerPrompt.includes('extract email') || lowerPrompt.includes('only email')) {
     extractType = 'emails';
     descriptions.push('extract emails');
-  } else if (p.includes('extract number') || p.includes('extract id') || p.includes('only number')) {
+    matched = true;
+  } else if (lowerPrompt.includes('extract number') || lowerPrompt.includes('extract id') || lowerPrompt.includes('only number')) {
     extractType = 'numbers';
     descriptions.push('extract numbers');
-  } else if (p.includes('extract url') || p.includes('extract link')) {
+    matched = true;
+  } else if (lowerPrompt.includes('extract url') || lowerPrompt.includes('extract link')) {
     extractType = 'urls';
     descriptions.push('extract URLs');
-  } else if (p.includes('extract uuid')) {
+    matched = true;
+  } else if (lowerPrompt.includes('extract uuid')) {
     extractType = 'uuids';
     descriptions.push('extract UUIDs');
-  } else if (p.includes('clean excel') || p.includes('clean quote')) {
+    matched = true;
+  } else if (lowerPrompt.includes('clean excel') || lowerPrompt.includes('clean quote')) {
     extractType = 'excel';
     descriptions.push('clean Excel quotes & tabs');
+    matched = true;
   }
 
-  // 8. Whitespace
-  if (p.includes('trim')) {
-    options.trimWhitespace = true;
-    descriptions.push('trim whitespace');
-  }
-  if (p.includes('skip blank') || p.includes('no empty line')) {
-    options.skipEmpty = true;
-    descriptions.push('skip blank lines');
-  }
-
-  const actionDescription =
-    descriptions.length > 0 ? descriptions.join(', ') : 'Custom transform applied';
+  const actionDescription = matched
+    ? descriptions.join(', ')
+    : "Could not recognize prompt. Try: 'remove all a', 'replace X with Y', 'sql in', 'pad 5 zeros', 'keep lines with foo'...";
 
   return {
     options,
@@ -500,5 +948,7 @@ export function parseNaturalLanguageIntent(
     extractType,
     reverseLines,
     shuffleLines,
+    transformedText: inputText !== undefined && currentText !== inputText ? currentText : undefined,
+    matched,
   };
 }

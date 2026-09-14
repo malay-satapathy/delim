@@ -322,6 +322,19 @@ export const App: React.FC = () => {
                 input={columnText}
                 options={options}
                 onOptionsChange={handleUpdateOptions}
+                onUpdateInput={(newText, newOptions) => {
+                  setColumnText(newText);
+                  const effectiveOptions =
+                    newOptions && Object.keys(newOptions).length > 0
+                      ? { ...options, ...newOptions }
+                      : options;
+                  if (newOptions && Object.keys(newOptions).length > 0) {
+                    setOptions(effectiveOptions);
+                  }
+                  if (liveMode) {
+                    handleConvertToDelimited(newText, effectiveOptions);
+                  }
+                }}
                 onApplyExtraction={handleExtract}
                 onReverseLines={handleReverseLines}
                 onShuffleLines={handleShuffleLines}

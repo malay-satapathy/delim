@@ -17,6 +17,7 @@ import {
 import { Preset, StudioMode, DelimOptions } from '../types';
 import { PRESETS } from '../lib/presets';
 import { columnToDelimited } from '../lib/engine';
+import { parseNaturalLanguageIntent } from '../lib/intent';
 
 interface SpotlightPaletteProps {
   isOpen: boolean;
@@ -288,7 +289,7 @@ export const SpotlightPalette: React.FC<SpotlightPaletteProps> = ({
   ];
 
   // Filter commands by query
-  const filtered = allCommands.filter((cmd) => {
+  const baseFiltered = allCommands.filter((cmd) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (
@@ -298,6 +299,42 @@ export const SpotlightPalette: React.FC<SpotlightPaletteProps> = ({
       (cmd.badge && cmd.badge.toLowerCase().includes(q))
     );
   });
+
+  // Dynamic Natural Language Magic Item
+  const magicCommands: CommandItem[] = [];
+  if (query.trim().length > 1) {
+    const nlpMatch = parseNaturalLanguageIntent(query, {}, columnText);
+    if (nlpMatch.matched) {
+      magicCommands.push({
+        id: 'magic-command-run',
+        category: 'Conduit',
+        title: `🪄 Apply: ${nlpMatch.description}`,
+        badge: 'MAGIC',
+        description: 'Execute natural language command on dataset',
+        icon: <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />,
+        action: () => {
+          if (nlpMatch.transformedText !== undefined) {
+            onUpdateColumnText(nlpMatch.transformedText);
+          }
+          if (Object.keys(nlpMatch.options).length > 0) {
+            onOptionsChange(nlpMatch.options);
+          }
+          if (nlpMatch.extractType) {
+            onExtract(nlpMatch.extractType);
+          }
+          if (nlpMatch.reverseLines) {
+            onReverseLines();
+          }
+          if (nlpMatch.shuffleLines) {
+            onShuffleLines();
+          }
+          onClose();
+        },
+      });
+    }
+  }
+
+  const filtered = [...magicCommands, ...baseFiltered];
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
