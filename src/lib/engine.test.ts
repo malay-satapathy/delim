@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { columnToDelimited, delimitedToColumn, calculateStats } from './engine';
+import {
+  columnToDelimited,
+  delimitedToColumn,
+  calculateStats,
+  extractNumbers,
+  extractEmails,
+  extractUrls,
+  cleanExcelPasted,
+  reverseLines,
+  filterLines,
+  getDuplicateDetails,
+} from './engine';
 import { DEFAULT_OPTIONS } from './engine';
 
 describe('delim engine - columnToDelimited', () => {
@@ -136,5 +147,47 @@ describe('delim engine - calculateStats', () => {
     expect(stats.uniqueCount).toBe(3);
     expect(stats.duplicateCount).toBe(1);
     expect(stats.charCount).toBe(text.length);
+  });
+});
+
+describe('delim engine - extractors', () => {
+  it('extracts numbers from messy text', () => {
+    const text = 'Order #10294 placed on 2026-09-14 with ID 55829 and cost 99.50';
+    expect(extractNumbers(text)).toBe('10294\n2026\n09\n14\n55829\n99.50');
+  });
+
+  it('extracts emails from text', () => {
+    const text = 'Contact alice@example.com or bob.smith@work.org for help';
+    expect(extractEmails(text)).toBe('alice@example.com\nbob.smith@work.org');
+  });
+
+  it('extracts URLs from text', () => {
+    const text = 'Check out https://github.com/malay-satapathy/delim and http://example.com/test';
+    expect(extractUrls(text)).toBe('https://github.com/malay-satapathy/delim\nhttp://example.com/test');
+  });
+
+  it('cleans excel pasted quotes and tabs', () => {
+    const text = '"123, Main St"\t\n"Hello ""World"""\nSimple Line';
+    expect(cleanExcelPasted(text)).toBe('123, Main St\nHello "World"\nSimple Line');
+  });
+
+  it('reverses lines correctly', () => {
+    const text = 'first\nsecond\nthird';
+    expect(reverseLines(text)).toBe('third\nsecond\nfirst');
+  });
+
+  it('filters lines by query', () => {
+    const text = 'user_101\nadmin_202\nuser_303';
+    expect(filterLines(text, 'user', 'keep')).toBe('user_101\nuser_303');
+    expect(filterLines(text, 'admin', 'drop')).toBe('user_101\nuser_303');
+  });
+
+  it('finds duplicate details and frequencies', () => {
+    const text = 'apple\nbanana\napple\ncherry\napple\nbanana';
+    const dupes = getDuplicateDetails(text, '\n');
+    expect(dupes).toEqual([
+      { value: 'apple', count: 3 },
+      { value: 'banana', count: 2 },
+    ]);
   });
 });

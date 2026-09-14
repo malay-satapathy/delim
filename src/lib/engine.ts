@@ -303,3 +303,144 @@ export function calculateStats(text: string, delimiter: string = '\n'): TextStat
     charCount: text.length,
   };
 }
+
+/**
+ * Extracts numbers from text (e.g. IDs, order numbers, zip codes)
+ */
+export function extractNumbers(input: string): string {
+  if (!input) return '';
+  const matches = input.match(/\b\d+(?:\.\d+)?\b/g);
+  return matches ? matches.join('\n') : '';
+}
+
+/**
+ * Extracts email addresses from text
+ */
+export function extractEmails(input: string): string {
+  if (!input) return '';
+  const matches = input.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+  return matches ? matches.join('\n') : '';
+}
+
+/**
+ * Extracts HTTP/HTTPS URLs from text
+ */
+export function extractUrls(input: string): string {
+  if (!input) return '';
+  const matches = input.match(/https?:\/\/[^\s"'<>]+/g);
+  return matches ? matches.join('\n') : '';
+}
+
+/**
+ * Extracts UUIDs from text
+ */
+export function extractUuids(input: string): string {
+  if (!input) return '';
+  const matches = input.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g);
+  return matches ? matches.join('\n') : '';
+}
+
+/**
+ * Cleans Excel/Google Sheets copy-paste artifacts:
+ * - Removes enclosing outer quotes for cells containing commas
+ * - Unescapes doubled quotes ("" -> ")
+ * - Strips tab delimiters
+ */
+export function cleanExcelPasted(input: string): string {
+  if (!input) return '';
+  const lines = input.split(/\r?\n/);
+  const cleaned = lines.map((line) => {
+    let l = line.trim();
+    // Strip trailing or leading tabs
+    l = l.replace(/^\t+|\t+$/g, '');
+    // If enclosed in quotes, strip them
+    if (l.startsWith('"') && l.endsWith('"') && l.length >= 2) {
+      l = l.slice(1, -1);
+    }
+    // Unescape doubled quotes
+    l = l.replace(/""/g, '"');
+    return l;
+  });
+  return cleaned.join('\n');
+}
+
+/**
+ * Reverses order of lines
+ */
+export function reverseLines(input: string): string {
+  if (!input) return '';
+  return input.split(/\r?\n/).reverse().join('\n');
+}
+
+/**
+ * Randomly shuffles lines using Fisher-Yates algorithm
+ */
+export function shuffleLines(input: string): string {
+  if (!input) return '';
+  const array = input.split(/\r?\n/);
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array.join('\n');
+}
+
+/**
+ * Filters lines by keeping or dropping lines containing a query string or pattern
+ */
+export function filterLines(
+  input: string,
+  query: string,
+  mode: 'keep' | 'drop' = 'keep',
+  isRegex: boolean = false
+): string {
+  if (!input || !query) return input;
+  const lines = input.split(/\r?\n/);
+
+  let matcher: (line: string) => boolean;
+  if (isRegex) {
+    try {
+      const rx = new RegExp(query, 'i');
+      matcher = (line) => rx.test(line);
+    } catch {
+      matcher = (line) => line.toLowerCase().includes(query.toLowerCase());
+    }
+  } else {
+    const qLower = query.toLowerCase();
+    matcher = (line) => line.toLowerCase().includes(qLower);
+  }
+
+  const filtered = lines.filter((line) => (mode === 'keep' ? matcher(line) : !matcher(line)));
+  return filtered.join('\n');
+}
+
+export interface DuplicateDetail {
+  value: string;
+  count: number;
+}
+
+/**
+ * Returns duplicate items with their frequency counts, ordered by count descending
+ */
+export function getDuplicateDetails(text: string, delimiter: string = '\n'): DuplicateDetail[] {
+  if (!text) return [];
+  const resolved = resolveDelimiter(delimiter);
+  const items = (resolved === '\n' ? text.split(/\r?\n/) : text.split(resolved))
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  const freqMap = new Map<string, number>();
+  for (const item of items) {
+    freqMap.set(item, (freqMap.get(item) || 0) + 1);
+  }
+
+  const duplicates: DuplicateDetail[] = [];
+  freqMap.forEach((count, value) => {
+    if (count > 1) {
+      duplicates.push({ value, count });
+    }
+  });
+
+  return duplicates.sort((a, b) => b.count - a.count);
+}
+

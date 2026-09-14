@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { PresetsBar } from './components/PresetsBar';
+import { QuickChipsBar } from './components/QuickChipsBar';
 import { CenterControls } from './components/CenterControls';
 import { EditorPane } from './components/EditorPane';
 import { SettingsDrawer } from './components/SettingsDrawer';
+import { DuplicateInspector } from './components/DuplicateInspector';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { DelimOptions, Preset } from './types';
-import { DEFAULT_OPTIONS, columnToDelimited, delimitedToColumn } from './lib/engine';
+import {
+  DEFAULT_OPTIONS,
+  columnToDelimited,
+  delimitedToColumn,
+  extractNumbers,
+  extractEmails,
+  extractUrls,
+  extractUuids,
+  cleanExcelPasted,
+  reverseLines,
+  shuffleLines,
+  getDuplicateDetails,
+} from './lib/engine';
 import { SAMPLE_INPUT } from './lib/presets';
 
 export const App: React.FC = () => {
@@ -15,6 +29,7 @@ export const App: React.FC = () => {
   const [options, setOptions] = useState<DelimOptions>(DEFAULT_OPTIONS);
   const [liveMode, setLiveMode] = useState<boolean>(true);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -78,6 +93,51 @@ export const App: React.FC = () => {
     });
   };
 
+  // Extractors Handler
+  const handleExtract = (type: 'numbers' | 'emails' | 'urls' | 'uuids' | 'excel') => {
+    let extracted = '';
+    switch (type) {
+      case 'numbers':
+        extracted = extractNumbers(columnText);
+        break;
+      case 'emails':
+        extracted = extractEmails(columnText);
+        break;
+      case 'urls':
+        extracted = extractUrls(columnText);
+        break;
+      case 'uuids':
+        extracted = extractUuids(columnText);
+        break;
+      case 'excel':
+        extracted = cleanExcelPasted(columnText);
+        break;
+    }
+    if (extracted) {
+      setColumnText(extracted);
+      if (liveMode) {
+        handleConvertToDelimited(extracted, options);
+      }
+    }
+  };
+
+  // Reverse & Shuffle Handlers
+  const handleReverseLines = () => {
+    const reversed = reverseLines(columnText);
+    setColumnText(reversed);
+    if (liveMode) {
+      handleConvertToDelimited(reversed, options);
+    }
+  };
+
+  const handleShuffleLines = () => {
+    const shuffled = shuffleLines(columnText);
+    setColumnText(shuffled);
+    if (liveMode) {
+      handleConvertToDelimited(shuffled, options);
+    }
+  };
+
   // Swap Left & Right Data
   const handleSwap = () => {
     const tempCol = columnText;
@@ -103,6 +163,13 @@ export const App: React.FC = () => {
     setColumnText(SAMPLE_INPUT);
     handleConvertToDelimited(SAMPLE_INPUT, options);
   };
+
+  // Deduplication from Modal
+  const handleRemoveDuplicates = () => {
+    handleUpdateOptions({ deduplicate: true });
+  };
+
+  const duplicateDetails = getDuplicateDetails(columnText, '\n');
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -135,11 +202,22 @@ export const App: React.FC = () => {
         onResetAll={handleResetAll}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-        {/* Presets Bar */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+        {/* Tier 1: Presets Ribbon */}
         <PresetsBar onSelectPreset={handleSelectPreset} currentOptions={options} />
 
-        {/* Center Actions Hub */}
+        {/* Tier 2: Instant Quick-Chips Bar */}
+        <QuickChipsBar
+          options={options}
+          onOptionsChange={handleUpdateOptions}
+          onExtract={handleExtract}
+          onReverseLines={handleReverseLines}
+          onShuffleLines={handleShuffleLines}
+          onToggleSettings={() => setSettingsOpen(!settingsOpen)}
+          settingsOpen={settingsOpen}
+        />
+
+        {/* Middle Interaction Bar */}
         <CenterControls
           options={options}
           onOptionsChange={handleUpdateOptions}
@@ -151,8 +229,8 @@ export const App: React.FC = () => {
           onToggleLiveMode={() => setLiveMode(!liveMode)}
         />
 
-        {/* Dual Workspaces (Column & Delimited) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Tier 3: Workspaces (Column & Delimited) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <EditorPane
             title="Column Data"
             subtitle="Paste lists, spreadsheet columns, or raw text"
@@ -163,10 +241,11 @@ export const App: React.FC = () => {
                 handleConvertToDelimited(val, options);
               }
             }}
-            placeholder={`Enter or paste multi-line column data here...\n\nExample:\napple\nbanana\ncherry`}
+            placeholder={`Enter or paste column data here...\n\nExample:\n90210\n10001\n94103\n90210`}
             delimiter="\n"
             isSource={true}
             onLoadSample={handleLoadSample}
+            onInspectDuplicates={() => setDuplicateModalOpen(true)}
           />
 
           <EditorPane
@@ -179,13 +258,15 @@ export const App: React.FC = () => {
                 handleConvertToColumn(val, options);
               }
             }}
-            placeholder={`Delimited output appears here...\n\nExample:\n'apple', 'banana', 'cherry'`}
+            placeholder={`Delimited output appears here...\n\nExample:\n'90210', '10001', '94103'`}
             delimiter={options.delimiter}
             isSource={false}
+            isPrimaryCopy={true}
+            onInspectDuplicates={() => setDuplicateModalOpen(true)}
           />
         </div>
 
-        {/* Settings Drawer */}
+        {/* Advanced Settings Drawer */}
         <SettingsDrawer
           options={options}
           onChange={handleUpdateOptions}
@@ -193,6 +274,15 @@ export const App: React.FC = () => {
           onToggleOpen={() => setSettingsOpen(!settingsOpen)}
         />
       </main>
+
+      {/* Duplicate Frequency Inspector Modal */}
+      {duplicateModalOpen && (
+        <DuplicateInspector
+          duplicates={duplicateDetails}
+          onClose={() => setDuplicateModalOpen(false)}
+          onRemoveDuplicates={handleRemoveDuplicates}
+        />
+      )}
 
       <PrivacyNotice />
     </div>

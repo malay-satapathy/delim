@@ -1,6 +1,18 @@
 import React, { useRef, useState } from 'react';
-import { Copy, Check, Upload, Download, Clipboard, Trash2, FileText, Sparkles } from 'lucide-react';
-import { calculateStats } from '../lib/engine';
+import {
+  Copy,
+  Check,
+  Upload,
+  Download,
+  Clipboard,
+  Trash2,
+  FileText,
+  Sparkles,
+  Search,
+  X,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { calculateStats, filterLines } from '../lib/engine';
 
 interface EditorPaneProps {
   title: string;
@@ -10,7 +22,9 @@ interface EditorPaneProps {
   placeholder?: string;
   delimiter?: string;
   isSource?: boolean;
+  isPrimaryCopy?: boolean;
   onLoadSample?: () => void;
+  onInspectDuplicates?: () => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -21,9 +35,15 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   placeholder,
   delimiter = '\n',
   isSource = false,
+  isPrimaryCopy = false,
   onLoadSample,
+  onInspectDuplicates,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<'keep' | 'drop'>('keep');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +67,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       if (textareaRef.current) {
         textareaRef.current.select();
         document.execCommand('copy');
@@ -110,13 +129,22 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
     }
   };
 
+  // Filter application
+  const applyFilter = () => {
+    if (!filterQuery) return;
+    const filtered = filterLines(value, filterQuery, filterMode);
+    onChange(filtered);
+    setFilterOpen(false);
+    setFilterQuery('');
+  };
+
   const stats = calculateStats(value, delimiter);
 
   return (
     <div
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className="flex flex-col h-[520px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50"
+      className="flex flex-col h-[530px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50"
     >
       {/* Pane Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 shrink-0">
@@ -138,6 +166,20 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             >
               <Sparkles className="w-3 h-3" />
               <span className="hidden sm:inline">Sample</span>
+            </button>
+          )}
+
+          {isSource && (
+            <button
+              onClick={() => setFilterOpen(!filterOpen)}
+              title="Filter lines by keyword"
+              className={`p-1.5 rounded-lg transition-colors ${
+                filterOpen
+                  ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
             </button>
           )}
 
@@ -172,18 +214,21 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             <Download className="w-3.5 h-3.5" />
           </button>
 
+          {/* Copy Button (Highlighted if primary) */}
           <button
             onClick={handleCopy}
             disabled={!value}
-            title="Copy to clipboard"
-            className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
+            title="Copy to clipboard (Cmd/Ctrl + C)"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
               copied
                 ? 'bg-emerald-600 text-white shadow-sm'
+                : isPrimaryCopy
+                ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-sm shadow-indigo-500/25 disabled:opacity-30 disabled:cursor-not-allowed'
                 : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-30 disabled:cursor-not-allowed'
             }`}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied!' : 'Copy'}</span>
+            <span>{copied ? 'Copied! ✓' : isPrimaryCopy ? 'Copy Result' : 'Copy'}</span>
           </button>
 
           <button
@@ -196,6 +241,52 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Filter Bar (Collapsible) */}
+      {filterOpen && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900/50 animate-in fade-in slide-in-from-top-1 text-xs">
+          <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+          <input
+            type="text"
+            placeholder="Filter lines containing..."
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyFilter()}
+            className="flex-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900 shrink-0">
+            <button
+              onClick={() => setFilterMode('keep')}
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                filterMode === 'keep' ? 'bg-indigo-600 text-white' : 'text-slate-500'
+              }`}
+            >
+              Keep
+            </button>
+            <button
+              onClick={() => setFilterMode('drop')}
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                filterMode === 'drop' ? 'bg-indigo-600 text-white' : 'text-slate-500'
+              }`}
+            >
+              Drop
+            </button>
+          </div>
+          <button
+            onClick={applyFilter}
+            disabled={!filterQuery}
+            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md disabled:opacity-40"
+          >
+            Filter
+          </button>
+          <button
+            onClick={() => setFilterOpen(false)}
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Editor Body with Gutter */}
       <div className="relative flex-1 flex overflow-hidden font-mono text-xs sm:text-sm">
@@ -241,9 +332,17 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           {stats.duplicateCount > 0 && (
             <>
               <span>•</span>
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
-                {stats.duplicateCount} duplicates
-              </span>
+              <button
+                type="button"
+                onClick={onInspectDuplicates}
+                title="Click to inspect duplicate frequencies"
+                className="text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+              >
+                <span>{stats.duplicateCount} duplicates</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700">
+                  Inspect
+                </span>
+              </button>
             </>
           )}
         </div>
