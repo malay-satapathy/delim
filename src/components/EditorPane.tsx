@@ -27,6 +27,7 @@ interface EditorPaneProps {
   onSelectSample?: (sampleData: string) => void;
   onInspectDuplicates?: () => void;
   onOpenSlicer?: () => void;
+  onSwitchMode?: (mode: 'standard' | 'diff' | 'template' | 'slicer') => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -41,6 +42,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   onSelectSample,
   onInspectDuplicates,
   onOpenSlicer,
+  onSwitchMode,
 }) => {
   const [copied, setCopied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -409,6 +411,33 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
                     <span>{sample.label}</span>
                   </button>
                 ))}
+
+                {onSwitchMode && (
+                  <div className="w-full pt-2 flex flex-wrap items-center justify-center gap-1.5 text-[11px] border-t border-slate-200/60 dark:border-white/[0.06] mt-2">
+                    <span className="text-slate-400 mr-1 select-none">Studio Modes:</span>
+                    <button
+                      type="button"
+                      onClick={() => onSwitchMode('diff')}
+                      className="px-2 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800/60 bg-cyan-50/60 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 font-medium"
+                    >
+                      ⧉ Two-List Diff
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSwitchMode('template')}
+                      className="px-2 py-0.5 rounded-lg border border-purple-200 dark:border-purple-800/60 bg-purple-50/60 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 font-medium"
+                    >
+                      {'{ }'} Template Engine
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSwitchMode('slicer')}
+                      className="px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 font-medium"
+                    >
+                      ⊞ Table Slicer
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -446,7 +475,23 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             </>
           )}
         </div>
-        <div>
+
+        {/* Right Stats: Numeric Summary (pandas describe) & Chars */}
+        <div className="flex items-center gap-3">
+          {stats.numericStats && (
+            <div
+              title={`Numeric Summary (pandas describe):\nSum: ${stats.numericStats.sum.toLocaleString()}\nMean: ${stats.numericStats.mean}\nMedian: ${stats.numericStats.median}\nMin: ${stats.numericStats.min}\nMax: ${stats.numericStats.max}`}
+              className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 font-mono text-[10px]"
+            >
+              <span><strong>Σ</strong> {stats.numericStats.sum.toLocaleString()}</span>
+              <span>•</span>
+              <span><strong>Avg</strong> {stats.numericStats.mean}</span>
+              <span>•</span>
+              <span><strong>Min</strong> {stats.numericStats.min}</span>
+              <span>•</span>
+              <span><strong>Max</strong> {stats.numericStats.max}</span>
+            </div>
+          )}
           <span>{stats.charCount.toLocaleString()} chars</span>
         </div>
       </div>

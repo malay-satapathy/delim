@@ -4,9 +4,11 @@ export type DelimiterPreset = ',' | ';' | '|' | ' ' | '\t' | '\n' | 'custom';
 
 export type ExplodePreset = '\n' | ',' | ';' | ' ' | '\t' | 'custom';
 
-export type SortOrder = 'none' | 'asc' | 'desc' | 'numeric-asc' | 'numeric-desc';
+export type SortOrder = 'none' | 'asc' | 'desc' | 'numeric-asc' | 'numeric-desc' | 'freq-desc' | 'freq-asc';
 
 export type CaseTransform = 'none' | 'upper' | 'lower' | 'title';
+
+export type DeduplicateStrategy = 'first' | 'last' | 'none'; // pandas drop_duplicates(keep='first'|'last'|False)
 
 export interface DelimOptions {
   delimiter: string;
@@ -14,8 +16,11 @@ export interface DelimOptions {
   isExplodeRegex?: boolean;
   tidyUp: boolean; // true = single-line (or interval-line) output, false = newline with delimiter
   deduplicate: boolean;
+  deduplicateStrategy: DeduplicateStrategy;
+  zeroPadWidth: number; // 0 = disabled, > 0 = zero-pad numbers to N digits (e.g. 5 for zip codes)
   trimWhitespace: boolean;
   skipEmpty: boolean;
+  fillnaValue: string; // pandas fillna fallback for blank items
   quotes: QuoteStyle;
   customQuoteOpen: string;
   customQuoteClose: string;
@@ -38,12 +43,22 @@ export interface Preset {
   options: Partial<DelimOptions>;
 }
 
+export interface NumericStats {
+  count: number;
+  sum: number;
+  mean: number;
+  median: number;
+  min: number;
+  max: number;
+}
+
 export interface TextStats {
   lineCount: number;
   itemCount: number;
   uniqueCount: number;
   duplicateCount: number;
   charCount: number;
+  numericStats?: NumericStats | null;
 }
 
 export type StudioMode = 'standard' | 'diff' | 'template' | 'slicer';

@@ -1,6 +1,8 @@
 import {
   DelimOptions,
   TextStats,
+  NumericStats,
+  DeduplicateStrategy,
   SetOpType,
   SetOpOptions,
   SetOpResult,
@@ -15,8 +17,11 @@ export const DEFAULT_OPTIONS: DelimOptions = {
   isExplodeRegex: false,
   tidyUp: true,
   deduplicate: false,
+  deduplicateStrategy: 'first',
+  zeroPadWidth: 0,
   trimWhitespace: true,
   skipEmpty: true,
+  fillnaValue: '',
   quotes: 'none',
   customQuoteOpen: '',
   customQuoteClose: '',
@@ -88,6 +93,63 @@ export function applyCase(text: string, transform: DelimOptions['caseTransform']
 }
 
 /**
+ * Zero-pads numeric strings to target width (pandas s.str.zfill)
+ */
+export function zeroPad(item: string, width: number): string {
+  if (!width || width <= 0) return item;
+  const trimmed = item.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return trimmed.padStart(width, '0');
+  }
+  return item;
+}
+
+/**
+ * Deduplicates list with strategies:
+ * - 'first': keep first occurrence (default)
+ * - 'last': keep last occurrence (pandas keep='last')
+ * - 'none': drop all repeating items, keeping strictly unique singletons (pandas keep=False)
+ */
+export function deduplicateList(items: string[], strategy: DeduplicateStrategy = 'first'): string[] {
+  if (strategy === 'last') {
+    const lastIndices = new Map<string, number>();
+    items.forEach((item, idx) => {
+      lastIndices.set(item, idx);
+    });
+    return items.filter((item, idx) => lastIndices.get(item) === idx);
+  } else if (strategy === 'none') {
+    const counts = new Map<string, number>();
+    items.forEach((item) => {
+      counts.set(item, (counts.get(item) || 0) + 1);
+    });
+    return items.filter((item) => counts.get(item) === 1);
+  } else {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+  }
+}
+
+/**
+ * Splits each line by a delimiter and picks an index (e.g. 0 for first, -1 for last)
+ * Equivalent to pandas s.str.split(delim).str[idx]
+ */
+export function splitAndPick(input: string, delim: string, index: number = 0): string {
+  if (!input || !delim) return input;
+  const lines = input.split(/\r?\n/);
+  const picked = lines.map((line) => {
+    const parts = line.split(delim);
+    if (parts.length === 0) return '';
+    const targetIdx = index < 0 ? parts.length + index : index;
+    return (parts[targetIdx] !== undefined ? parts[targetIdx] : line).trim();
+  });
+  return picked.join('\n');
+}
+
+/**
  * Converts column data to delimited format based on options
  */
 export function columnToDelimited(input: string, userOptions: Partial<DelimOptions> = {}): string {
@@ -112,20 +174,23 @@ export function columnToDelimited(input: string, userOptions: Partial<DelimOptio
     rawItems = input.split(options.explode);
   }
 
-  // 2. Trim and filter empty
+  // 2. Trim and filter empty (with fillna fallback)
   let items = rawItems.map((item) => (options.trimWhitespace ? item.trim() : item));
+  if (options.fillnaValue && !options.skipEmpty) {
+    items = items.map((item) => (item.length === 0 ? options.fillnaValue : item));
+  }
   if (options.skipEmpty) {
     items = items.filter((item) => item.length > 0);
   }
 
+  // Zero-padding (pandas s.str.zfill)
+  if (options.zeroPadWidth && options.zeroPadWidth > 0) {
+    items = items.map((item) => zeroPad(item, options.zeroPadWidth));
+  }
+
   // 3. Deduplicate
   if (options.deduplicate) {
-    const seen = new Set<string>();
-    items = items.filter((item) => {
-      if (seen.has(item)) return false;
-      seen.add(item);
-      return true;
-    });
+    items = deduplicateList(items, options.deduplicateStrategy);
   }
 
   // 4. Case transform
@@ -149,6 +214,13 @@ export function columnToDelimited(input: string, userOptions: Partial<DelimOptio
       const numA = parseFloat(a.replace(/[^0-9.-]/g, '')) || 0;
       const numB = parseFloat(b.replace(/[^0-9.-]/g, '')) || 0;
       return numB - numA;
+    });
+  } else if (options.sort === 'freq-desc' || options.sort === 'freq-asc') {
+    const freqMap = new Map<string, number>();
+    items.forEach((i) => freqMap.set(i, (freqMap.get(i) || 0) + 1));
+    items = [...items].sort((a, b) => {
+      const diff = (freqMap.get(b) || 0) - (freqMap.get(a) || 0);
+      return options.sort === 'freq-desc' ? diff : -diff;
     });
   }
 
@@ -291,6 +363,7 @@ export function calculateStats(text: string, delimiter: string = '\n'): TextStat
       uniqueCount: 0,
       duplicateCount: 0,
       charCount: 0,
+      numericStats: null,
     };
   }
 
@@ -304,12 +377,46 @@ export function calculateStats(text: string, delimiter: string = '\n'): TextStat
   const uniqueCount = uniqueSet.size;
   const duplicateCount = Math.max(0, items.length - uniqueCount);
 
+  // Numeric summary stats (pandas s.describe)
+  let numericStats: NumericStats | null = null;
+  const parsedNumbers: number[] = [];
+  for (const item of items) {
+    // Only parse if it looks like a clean number
+    if (/^-?\d+(?:\.\d+)?$/.test(item)) {
+      parsedNumbers.push(parseFloat(item));
+    }
+  }
+
+  if (items.length >= 2 && parsedNumbers.length / items.length >= 0.5) {
+    parsedNumbers.sort((a, b) => a - b);
+    const sum = parsedNumbers.reduce((acc, v) => acc + v, 0);
+    const count = parsedNumbers.length;
+    const mean = Math.round((sum / count) * 100) / 100;
+    const min = parsedNumbers[0];
+    const max = parsedNumbers[parsedNumbers.length - 1];
+    const mid = Math.floor(parsedNumbers.length / 2);
+    const median =
+      parsedNumbers.length % 2 !== 0
+        ? parsedNumbers[mid]
+        : Math.round(((parsedNumbers[mid - 1] + parsedNumbers[mid]) / 2) * 100) / 100;
+
+    numericStats = {
+      count,
+      sum: Math.round(sum * 100) / 100,
+      mean,
+      median,
+      min,
+      max,
+    };
+  }
+
   return {
     lineCount: lines.length,
     itemCount: items.length,
     uniqueCount,
     duplicateCount,
     charCount: text.length,
+    numericStats,
   };
 }
 

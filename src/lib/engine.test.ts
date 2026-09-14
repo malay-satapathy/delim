@@ -16,6 +16,9 @@ import {
   parseCsvLine,
   detectTable,
   extractColumnFromTable,
+  zeroPad,
+  deduplicateList,
+  splitAndPick,
   formatSqlDialect,
   DEFAULT_OPTIONS,
 } from './engine';
@@ -365,3 +368,118 @@ describe('delim engine - formatSqlDialect', () => {
     expect(sql).toContain("'item_1000')\n  OR order_id IN ('item_1001'");
   });
 });
+
+describe('pandas-inspired engine features', () => {
+  describe('zeroPad (s.str.zfill)', () => {
+    it('pads numeric strings to given width', () => {
+      expect(zeroPad('42', 5)).toBe('00042');
+      expect(zeroPad('12345', 5)).toBe('12345');
+      expect(zeroPad('9', 3)).toBe('009');
+    });
+
+    it('leaves non-numeric strings unpadded', () => {
+      expect(zeroPad('abc', 5)).toBe('abc');
+      expect(zeroPad('order-42', 8)).toBe('order-42');
+    });
+
+    it('handles width <= 0 or empty string gracefully', () => {
+      expect(zeroPad('42', 0)).toBe('42');
+      expect(zeroPad('42', -2)).toBe('42');
+      expect(zeroPad('', 5)).toBe('');
+    });
+  });
+
+  describe('deduplicateList strategies (pandas drop_duplicates)', () => {
+    const list = ['apple', 'banana', 'apple', 'cherry', 'apple', 'banana', 'date'];
+
+    it("keeps first occurrence by default (strategy='first')", () => {
+      expect(deduplicateList(list, 'first')).toEqual(['apple', 'banana', 'cherry', 'date']);
+    });
+
+    it("keeps last occurrence (strategy='last')", () => {
+      // Last positions: 'cherry' is at idx 3, 'apple' at idx 4, 'banana' at idx 5, 'date' at idx 6
+      expect(deduplicateList(list, 'last')).toEqual(['cherry', 'apple', 'banana', 'date']);
+    });
+
+    it("drops all repeating items, keeping strictly singletons (strategy='none')", () => {
+      // apple (3x) dropped, banana (2x) dropped; only cherry (1x) and date (1x) remain
+      expect(deduplicateList(list, 'none')).toEqual(['cherry', 'date']);
+    });
+  });
+
+  describe('splitAndPick (s.str.split.str[idx])', () => {
+    const multiline = 'john.doe@company.com\nsarah.connor@sky.net\nadmin@root.org';
+
+    it('picks the first element (index 0)', () => {
+      expect(splitAndPick(multiline, '@', 0)).toBe('john.doe\nsarah.connor\nadmin');
+    });
+
+    it('picks the last element (index -1)', () => {
+      expect(splitAndPick(multiline, '@', -1)).toBe('company.com\nsky.net\nroot.org');
+    });
+
+    it('handles lines without the delimiter gracefully', () => {
+      const input = 'a-b\nstandalone\nc-d';
+      expect(splitAndPick(input, '-', 0)).toBe('a\nstandalone\nc');
+    });
+  });
+
+  describe('columnToDelimited with pandas options', () => {
+    it('applies zero-padding during columnToDelimited', () => {
+      const input = '7\n42\n128';
+      const res = columnToDelimited(input, { delimiter: ', ', zeroPadWidth: 4 });
+      expect(res).toBe('0007, 0042, 0128');
+    });
+
+    it('applies deduplicateStrategy=none', () => {
+      const input = '100\n200\n100\n300';
+      const res = columnToDelimited(input, {
+        delimiter: ',',
+        deduplicate: true,
+        deduplicateStrategy: 'none',
+      });
+      expect(res).toBe('200,300');
+    });
+
+    it('sorts by frequency descending (s.value_counts)', () => {
+      const input = 'dog\ncat\ndog\nfish\ndog\ncat';
+      const res = columnToDelimited(input, { delimiter: ',', sort: 'freq-desc' });
+      // dog: 3, cat: 2, fish: 1
+      expect(res).toBe('dog,dog,dog,cat,cat,fish');
+    });
+
+    it('sorts by frequency ascending', () => {
+      const input = 'dog\ncat\ndog\nfish\ndog\ncat';
+      const res = columnToDelimited(input, { delimiter: ',', sort: 'freq-asc' });
+      // fish: 1, cat: 2, dog: 3
+      expect(res).toBe('fish,cat,cat,dog,dog,dog');
+    });
+  });
+
+  describe('calculateStats numeric summary (pandas s.describe)', () => {
+    it('computes sum, mean, median, min, max for numeric input', () => {
+      const text = '10\n20\n30\n40\n50';
+      const stats = calculateStats(text, '\n');
+      expect(stats.numericStats).not.toBeNull();
+      expect(stats.numericStats?.count).toBe(5);
+      expect(stats.numericStats?.sum).toBe(150);
+      expect(stats.numericStats?.mean).toBe(30);
+      expect(stats.numericStats?.median).toBe(30);
+      expect(stats.numericStats?.min).toBe(10);
+      expect(stats.numericStats?.max).toBe(50);
+    });
+
+    it('handles even number of elements for median calculation', () => {
+      const text = '10\n20\n30\n40';
+      const stats = calculateStats(text, '\n');
+      expect(stats.numericStats?.median).toBe(25);
+    });
+
+    it('returns null numericStats when input is non-numeric', () => {
+      const text = 'apple\nbanana\ncherry';
+      const stats = calculateStats(text, '\n');
+      expect(stats.numericStats).toBeNull();
+    });
+  });
+});
+

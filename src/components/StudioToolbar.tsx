@@ -18,8 +18,11 @@ import {
   ArrowLeftRight,
   Trash2,
   Zap,
+  Layers,
+  Braces,
+  Binary,
 } from 'lucide-react';
-import { DelimOptions, Preset, CaseTransform } from '../types';
+import { DelimOptions, Preset, CaseTransform, StudioMode } from '../types';
 import { PRESETS } from '../lib/presets';
 import { DEFAULT_OPTIONS } from '../lib/engine';
 
@@ -38,6 +41,7 @@ interface StudioToolbarProps {
   onToggleLiveMode: () => void;
   onToggleSettings: () => void;
   settingsOpen: boolean;
+  onSelectMode?: (mode: StudioMode) => void;
 }
 
 const DELIMITER_SHORTCUTS = [
@@ -65,22 +69,26 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   onToggleLiveMode,
   onToggleSettings,
   settingsOpen,
+  onSelectMode,
 }) => {
   const [delimDropdownOpen, setDelimDropdownOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [caseMenuOpen, setCaseMenuOpen] = useState(false);
   const [extractMenuOpen, setExtractMenuOpen] = useState(false);
+  const [dedupMenuOpen, setDedupMenuOpen] = useState(false);
 
   const delimRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const caseRef = useRef<HTMLDivElement>(null);
   const extractRef = useRef<HTMLDivElement>(null);
+  const dedupRef = useRef<HTMLDivElement>(null);
 
   const toggleDelim = () => {
     setDelimDropdownOpen((prev) => !prev);
     setSortMenuOpen(false);
     setCaseMenuOpen(false);
     setExtractMenuOpen(false);
+    setDedupMenuOpen(false);
   };
 
   const toggleSort = () => {
@@ -88,6 +96,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
     setDelimDropdownOpen(false);
     setCaseMenuOpen(false);
     setExtractMenuOpen(false);
+    setDedupMenuOpen(false);
   };
 
   const toggleCase = () => {
@@ -95,6 +104,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
     setDelimDropdownOpen(false);
     setSortMenuOpen(false);
     setExtractMenuOpen(false);
+    setDedupMenuOpen(false);
   };
 
   const toggleExtract = () => {
@@ -102,6 +112,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
     setDelimDropdownOpen(false);
     setSortMenuOpen(false);
     setCaseMenuOpen(false);
+    setDedupMenuOpen(false);
   };
 
   useEffect(() => {
@@ -118,6 +129,9 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
       if (extractRef.current && !extractRef.current.contains(event.target as Node)) {
         setExtractMenuOpen(false);
       }
+      if (dedupRef.current && !dedupRef.current.contains(event.target as Node)) {
+        setDedupMenuOpen(false);
+      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -126,6 +140,7 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
         setSortMenuOpen(false);
         setCaseMenuOpen(false);
         setExtractMenuOpen(false);
+        setDedupMenuOpen(false);
       }
     }
 
@@ -200,6 +215,39 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
               </button>
             );
           })}
+
+          {/* Contextual Studio Mode Discovery Bridges */}
+          {onSelectMode && (
+            <div className="flex items-center gap-1.5 pl-2 ml-1 border-l border-slate-200 dark:border-white/[0.08] shrink-0">
+              <button
+                type="button"
+                onClick={() => onSelectMode('diff')}
+                title="Switch to Two-List Diff and Set Operations mode"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition-colors select-none"
+              >
+                <Layers className="w-3 h-3 text-cyan-500" />
+                <span>Two-List Diff →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectMode('template')}
+                title="Switch to Custom Template String Interpolation Engine"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors select-none"
+              >
+                <Braces className="w-3 h-3 text-purple-500" />
+                <span>Template Engine →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectMode('slicer')}
+                title="Switch to Tabular TSV / CSV Column Slicer"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors select-none"
+              >
+                <Table className="w-3 h-3 text-emerald-500" />
+                <span>Table Slicer →</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -207,27 +255,102 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
       <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Left Group: Quick Clean-up Chips & Tools */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* Deduplicate */}
-          <button
-            type="button"
-            onClick={() => onOptionsChange({ deduplicate: !options.deduplicate })}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-              options.deduplicate
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                : 'bg-white dark:bg-obsidian-850 border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
-            <div
-              className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
-                options.deduplicate
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : 'border-slate-300 dark:border-slate-600'
-              }`}
-            >
-              {options.deduplicate && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+          {/* Deduplicate with Strategy Dropdown */}
+          <div className="relative" ref={dedupRef}>
+            <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-obsidian-850 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => onOptionsChange({ deduplicate: !options.deduplicate })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 font-medium transition-all ${
+                  options.deduplicate
+                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px] ${
+                    options.deduplicate
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'border-slate-300 dark:border-slate-600'
+                  }`}
+                >
+                  {options.deduplicate && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                </div>
+                <span>
+                  {options.deduplicateStrategy === 'none'
+                    ? 'Singletons Only'
+                    : options.deduplicateStrategy === 'last'
+                    ? 'Keep Last'
+                    : 'Deduplicate'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDedupMenuOpen(!dedupMenuOpen)}
+                title="Deduplication Strategy (pandas keep='first'|'last'|False)"
+                className="p-1.5 border-l border-slate-100 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-obsidian-800 text-slate-400"
+              >
+                <ChevronDown className="w-3 h-3" />
+              </button>
             </div>
-            <span>Deduplicate</span>
-          </button>
+
+            {dedupMenuOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Duplicate Strategy (pandas)
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOptionsChange({ deduplicate: true, deduplicateStrategy: 'first' });
+                    setDedupMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                >
+                  <div>
+                    <span className="font-semibold block">Keep First (Default)</span>
+                    <span className="text-[10px] text-slate-400">Keep first occurrence, drop repeats</span>
+                  </div>
+                  {options.deduplicateStrategy === 'first' && options.deduplicate && (
+                    <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOptionsChange({ deduplicate: true, deduplicateStrategy: 'last' });
+                    setDedupMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                >
+                  <div>
+                    <span className="font-semibold block">Keep Last</span>
+                    <span className="text-[10px] text-slate-400">Keep only latest/last occurrence</span>
+                  </div>
+                  {options.deduplicateStrategy === 'last' && options.deduplicate && (
+                    <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOptionsChange({ deduplicate: true, deduplicateStrategy: 'none' });
+                    setDedupMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                >
+                  <div>
+                    <span className="font-semibold block">Strictly Singletons</span>
+                    <span className="text-[10px] text-slate-400">Drop all duplicates entirely</span>
+                  </div>
+                  {options.deduplicateStrategy === 'none' && options.deduplicate && (
+                    <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Trim */}
           <button
@@ -293,6 +416,24 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
             <span>Inline</span>
           </button>
 
+          {/* Zero-Pad (pandas zfill) */}
+          <div
+            title="Zero-pad numbers to fixed width (pandas zfill). E.g. 5 turns '2138' to '02138'"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-obsidian-850 text-slate-700 dark:text-slate-300 select-none"
+          >
+            <Binary className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pad 0s:</span>
+            <input
+              type="number"
+              min="0"
+              max="20"
+              placeholder="0"
+              value={options.zeroPadWidth === 0 ? '' : options.zeroPadWidth}
+              onChange={(e) => onOptionsChange({ zeroPadWidth: parseInt(e.target.value, 10) || 0 })}
+              className="w-7 px-1 py-0.5 text-xs font-mono font-bold rounded bg-slate-100 dark:bg-obsidian-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center"
+            />
+          </div>
+
           <span className="text-slate-300 dark:text-slate-700 px-0.5 hidden sm:inline">•</span>
 
           {/* Sort Dropdown */}
@@ -316,13 +457,17 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                   ? '1 → 9'
                   : options.sort === 'numeric-desc'
                   ? '9 → 1'
+                  : options.sort === 'freq-desc'
+                  ? 'Frequent'
+                  : options.sort === 'freq-asc'
+                  ? 'Rare'
                   : 'Sort'}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
             </button>
 
             {sortMenuOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute top-full left-0 mt-1.5 w-56 bg-white dark:bg-obsidian-850 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 border border-slate-200 dark:border-white/[0.1] py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                 <button
                   type="button"
                   onClick={() => {
@@ -366,6 +511,20 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                 >
                   <span>Numeric (1 → 9)</span>
                   {options.sort === 'numeric-asc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOptionsChange({ sort: 'freq-desc' });
+                    setSortMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200"
+                >
+                  <div>
+                    <span className="font-semibold block">Frequency (s.value_counts)</span>
+                    <span className="text-[10px] text-slate-400">Most frequent first</span>
+                  </div>
+                  {options.sort === 'freq-desc' && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
                 </button>
                 <div className="border-t border-slate-100 dark:border-white/[0.06] my-1 pt-1">
                   <button

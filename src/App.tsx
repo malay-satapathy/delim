@@ -10,12 +10,6 @@ import { TemplatePane } from './components/TemplatePane';
 import { TableSlicerPane } from './components/TableSlicerPane';
 import { DelimOptions, Preset, StudioMode } from './types';
 import {
-  SlidersHorizontal,
-  Layers,
-  Braces,
-  Table,
-} from 'lucide-react';
-import {
   DEFAULT_OPTIONS,
   columnToDelimited,
   delimitedToColumn,
@@ -197,6 +191,24 @@ export const App: React.FC = () => {
         e.preventDefault();
         handleClear();
       }
+
+      // Studio Mode Switcher Hotkeys (1, 2, 3, 4 or Alt+1...4)
+      const isTyping = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName);
+      if (!isTyping || e.altKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setStudioMode('standard');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          setStudioMode('diff');
+        } else if (e.key === '3') {
+          e.preventDefault();
+          setStudioMode('template');
+        } else if (e.key === '4') {
+          e.preventDefault();
+          setStudioMode('slicer');
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -211,72 +223,62 @@ export const App: React.FC = () => {
         onResetAll={handleResetAll}
         isFullWidth={isFullWidth}
         onToggleFullWidth={() => setIsFullWidth(!isFullWidth)}
+        studioMode={studioMode}
+        onSelectMode={setStudioMode}
       />
 
       <main
-        className={`flex-1 w-full mx-auto py-4 space-y-3.5 transition-all duration-300 ${
+        className={`flex-1 w-full mx-auto py-3.5 space-y-3.5 transition-all duration-300 ${
           isFullWidth ? 'max-w-[98vw] px-2 sm:px-4 lg:px-6' : 'max-w-7xl px-4 sm:px-6 lg:px-8'
         }`}
       >
-        {/* Mode Switcher Segmented Control */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-0.5">
-          <div className="inline-flex items-center p-1 bg-slate-200/60 dark:bg-obsidian-850/90 rounded-2xl border border-slate-200/80 dark:border-white/[0.06] text-xs font-medium gap-1 shadow-xs">
+        {/* Mobile-Only Studio Switcher (Desktop has it prominently in Navbar) */}
+        <div className="md:hidden flex items-center justify-between pb-1">
+          <div className="w-full grid grid-cols-4 p-1 bg-slate-200/70 dark:bg-obsidian-850/90 rounded-2xl border border-slate-200/80 dark:border-white/[0.06] text-[11px] font-medium gap-1 text-center shadow-xs">
             <button
               type="button"
               onClick={() => setStudioMode('standard')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
+              className={`py-1.5 rounded-xl transition-all ${
                 studioMode === 'standard'
-                  ? 'bg-white dark:bg-obsidian-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Delimiter</span>
+              Delimiter
             </button>
-
             <button
               type="button"
               onClick={() => setStudioMode('diff')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
+              className={`py-1.5 rounded-xl transition-all ${
                 studioMode === 'diff'
-                  ? 'bg-white dark:bg-obsidian-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-cyan-600 text-white font-semibold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Two-List Diff</span>
+              Diff
             </button>
-
             <button
               type="button"
               onClick={() => setStudioMode('template')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
+              className={`py-1.5 rounded-xl transition-all ${
                 studioMode === 'template'
-                  ? 'bg-white dark:bg-obsidian-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Braces className="w-3.5 h-3.5" />
-              <span>Template Engine</span>
+              Template
             </button>
-
             <button
               type="button"
               onClick={() => setStudioMode('slicer')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
+              className={`py-1.5 rounded-xl transition-all ${
                 studioMode === 'slicer'
-                  ? 'bg-white dark:bg-obsidian-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Table className="w-3.5 h-3.5" />
-              <span>Table Slicer</span>
+              Slicer
             </button>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 select-none">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>100% Client-Side • Private • Zero Telemetry</span>
           </div>
         </div>
 
@@ -298,6 +300,7 @@ export const App: React.FC = () => {
               onToggleLiveMode={() => setLiveMode(!liveMode)}
               onToggleSettings={() => setSettingsOpen(!settingsOpen)}
               settingsOpen={settingsOpen}
+              onSelectMode={setStudioMode}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
@@ -317,6 +320,7 @@ export const App: React.FC = () => {
                 onSelectSample={handleLoadSample}
                 onInspectDuplicates={() => setDuplicateModalOpen(true)}
                 onOpenSlicer={() => setStudioMode('slicer')}
+                onSwitchMode={setStudioMode}
               />
 
               <EditorPane
@@ -334,6 +338,7 @@ export const App: React.FC = () => {
                 isSource={false}
                 isPrimaryCopy={true}
                 onInspectDuplicates={() => setDuplicateModalOpen(true)}
+                onSwitchMode={setStudioMode}
               />
             </div>
 
