@@ -18,8 +18,11 @@
 
 ## ✨ Design Philosophy & Architecture
 
-Built with a **minimalist, Apple-inspired design pattern** and **progressive disclosure**:
-- **Unified Command Deck**: Collapses multi-tier toolbars into a single, razor-thin 44px command strip. High-frequency essentials (`CSV`, `SQL IN`, `JSON`, `Pipe`, `Delim`, `Quotes`, `Trim`, `Dedupe`) sit at hand, while secondary tools live inside a clean `Refine ▾` menu.
+Built with a **minimalist, Apple-inspired design pattern** and **anticipatory intelligence**:
+- **Zero-Touch Intent Synthesis**: When you paste data, delim profiles it in $<1\text{ms}$ (numeric IDs, emails, URLs, unquoted keys, Excel tables) and predicts the top 3 transformations as 1-click action cards (`⌘1`, `⌘2`, `⌘3`).
+- **The Magic Wand (Natural Language Data Sculptor)**: Type what you want in plain English (*"sql in numbers"*, *"pad 5 zeros and sort by frequency"*, *"make it a json array uppercase"*) and the on-device semantic parser configures the engine instantly.
+- **The Conduit (Spotlight Quick Palette `⌘K`)**: A Raycast/Spotlight-grade command palette. 1-click read from clipboard, transform, and write back to clipboard without ever touching your mouse.
+- **Unified Command Deck**: Collapses multi-tier toolbars into a single, razor-thin 44px command strip. High-frequency essentials sit at hand, while secondary tools live inside a clean `Refine ▾` menu.
 - **Quiet Canvas**: Free of visual noise, fake sample clutter, and redundant buttons. The canvas gives 80%+ of the viewport directly to your data.
 - **Sensory Progressive Disclosure**: Power tools appear only when your dataset demands them. Numeric data summons the Zero-Pad chip and live $\Sigma$ Summary pill; duplicates surface strategy controls (`Keep First`, `Keep Last`, `Singletons Only`); tabular spreadsheets summon the inline column isolator.
 
@@ -27,7 +30,12 @@ Built with a **minimalist, Apple-inspired design pattern** and **progressive dis
 
 ## 🚀 Key Features
 
-### 1. Four Focused Studio Modes
+### 1. Anticipatory Intelligence & Productivity
+- **Zero-Touch Intent Deck**: Instant auto-profiling of your pasted data with predicted formats. Hit `⌘1`, `⌘2`, or `⌘3` to copy directly to your clipboard in a single stroke.
+- **Natural Language Magic Wand (`🪄`)**: Zero-server, 100% local semantic parser translating human prompts into engine operations.
+- **Spotlight Palette (`⌘K` / `Ctrl+K`)**: Fast keyboard-driven command launcher with fuzzy search, mode switcher, and instant **Clipboard Conduit** (`Paste & Copy SQL IN`, `CSV`, `JSON`, etc.).
+
+### 2. Four Focused Studio Modes
 - **Standard Delimiter (`[1]`)**: Fast, fluid 2-pane delimiter conversion with instant real-time updates, format presets, and smart clean-up.
 - **Two-List Diff & Set Operations (`[2]`)**: Compare two datasets with $A - B$, $B - A$, $A \cap B$, $A \cup B$, and Symmetric Difference ($A \Delta B$).
 - **Custom Template Engine (`[3]`)**: Dynamic string interpolation using `{item}`, `{index1}`, `{item_lower}`, `{item_upper}`, `{item_title}`, `{item_slug}`, `{item_escaped}`, and `{item_json}`.

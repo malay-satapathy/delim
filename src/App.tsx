@@ -8,6 +8,8 @@ import { PrivacyNotice } from './components/PrivacyNotice';
 import { TwoListDiffPane } from './components/TwoListDiffPane';
 import { TemplatePane } from './components/TemplatePane';
 import { TableSlicerPane } from './components/TableSlicerPane';
+import { IntentDeck } from './components/IntentDeck';
+import { SpotlightPalette } from './components/SpotlightPalette';
 import { DelimOptions, Preset, StudioMode } from './types';
 import {
   DEFAULT_OPTIONS,
@@ -33,6 +35,7 @@ export const App: React.FC = () => {
   const [liveMode, setLiveMode] = useState<boolean>(true);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
+  const [spotlightOpen, setSpotlightOpen] = useState<boolean>(false);
   const [isFullWidth, setIsFullWidth] = useState<boolean>(true);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -187,10 +190,14 @@ export const App: React.FC = () => {
           handleConvertToDelimited();
         }
       }
-      // Cmd/Ctrl + K to clear
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // Cmd/Ctrl + K to open Spotlight Command Palette (or Shift+K to clear)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        handleClear();
+        if (e.shiftKey) {
+          handleClear();
+        } else {
+          setSpotlightOpen((prev) => !prev);
+        }
       }
 
       // Studio Mode Switcher Hotkeys (1, 2, 3, 4 or Alt+1...4)
@@ -311,6 +318,17 @@ export const App: React.FC = () => {
                 hasNumbers={hasNumbers}
               />
 
+              <IntentDeck
+                input={columnText}
+                options={options}
+                onOptionsChange={handleUpdateOptions}
+                onApplyExtraction={handleExtract}
+                onReverseLines={handleReverseLines}
+                onShuffleLines={handleShuffleLines}
+                onSelectResult={(res) => setDelimitedText(res)}
+                onOpenSpotlight={() => setSpotlightOpen(true)}
+              />
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
                 <EditorPane
                   title="Column Data"
@@ -381,6 +399,25 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Spotlight Command Palette (Cmd+K) */}
+      <SpotlightPalette
+        isOpen={spotlightOpen}
+        onClose={() => setSpotlightOpen(false)}
+        onSelectPreset={handleSelectPreset}
+        onSelectMode={setStudioMode}
+        onOptionsChange={handleUpdateOptions}
+        onExtract={handleExtract}
+        onReverseLines={handleReverseLines}
+        onShuffleLines={handleShuffleLines}
+        columnText={columnText}
+        onUpdateColumnText={(text) => {
+          setColumnText(text);
+          if (liveMode) {
+            handleConvertToDelimited(text, options);
+          }
+        }}
+      />
 
       {/* Duplicate Frequency Inspector Modal */}
       {duplicateModalOpen && (
